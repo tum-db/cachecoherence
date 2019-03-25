@@ -1,3 +1,0 @@
-/Users/magdalena/Documents/Uni/5.Mastersemester/masterthesis-efficient-distributed-memory-management/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/Users/magdalena/Documents/Uni/5.Mastersemester/masterthesis-efficient-distributed-memory-management/cmake-build-debug/CMakeFiles/edit_cache.dir
-/Users/magdalena/Documents/Uni/5.Mastersemester/masterthesis-efficient-distributed-memory-management/cmake-build-debug/CMakeFiles/masterthesis-efficient-distributed-memory-management.dir
