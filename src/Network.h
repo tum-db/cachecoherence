@@ -2,8 +2,11 @@
 // Created by Magdalena Pröbstl on 2019-04-09.
 //
 
-#ifndef MASTERTHESIS_EFFICIENT_DISTRIBUTED_MEMORY_MANAGEMENT_NETWORK_H
-#define MASTERTHESIS_EFFICIENT_DISTRIBUTED_MEMORY_MANAGEMENT_NETWORK_H
+#ifndef MEDMM__H
+#define MEDMM__H
+
+#include <libibverbscpp.h>
+
 using MemoryRegion = std::unique_ptr<ibv::memoryregion::MemoryRegion>;
 
 std::ostream &operator<<(std::ostream &os, const ibv::memoryregion::RemoteAddress &remoteMemoryRegion);
@@ -62,4 +65,4 @@ public:
 };
 
 
-#endif //MASTERTHESIS_EFFICIENT_DISTRIBUTED_MEMORY_MANAGEMENT_NETWORK_H
+#endif MEDMM_H

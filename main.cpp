@@ -1,12 +1,14 @@
 #include <iostream>
 #include <cstddef>
 #include <libibverbscpp.h>
-#include <iostream>
 #include <vector>
 #include "src/Network.h"
+#include "src/QueuePair.h"
+
 
 
 int main() {
+    auto qp1 = QueuePair();
     char msg[8];
     auto list = ibv::device::DeviceList();
     auto ctx = list[0]->open();
@@ -17,7 +19,7 @@ int main() {
     auto sendCq = ctx->createCompletionQueue(100, nullptr, *sendCec, 0);
     auto recvCec = ctx->createCompletionEventChannel();
     auto recvCq = ctx->createCompletionQueue(100, nullptr, *recvCec, 0);
-    auto qpAttr = NetworksetupQpInitAttr(*sendCq, *recvCq);
+    auto qpAttr = qp1.setupQpInitAttr(*sendCq, *recvCq);
 
     auto qp = pd->createQueuePair(*qpAttr.queuePairAttributes);
 
