@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(masterthesis-efficient-distributed-memory-managemen)
+project(medmm CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -15,7 +15,8 @@ SET(LINK_LIBRARIES
         )
 
 include_directories(include/libibverbscpp)
-add_library(masterthesis-efficient-distributed-memory-management STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
 
-add_executable(masterthesis-efficient-distributed-memory-management main.cpp)
-target_link_libraries(masterthesis-efficient-distributed-memory-management ${LINK_LIBRARIES})
+add_library(medmm STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
+add_executable(main main.cpp)
+target_link_libraries(main medmm)
+target_link_libraries(medmm ${LINK_LIBRARIES})
