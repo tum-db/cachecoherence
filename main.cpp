@@ -51,7 +51,7 @@ int main() {
     rawGid.global.interface_id = interfaceId;
     auto remoteGid = ibv::Gid{rawGid};
 
-    connectRcQueuePair(*qp, remoteQpn, remoteLid, remoteGid, 1, 5);
+    qp1.connectRcQueuePair(*qp, remoteQpn, remoteLid, remoteGid, 1, 5);
 
     auto wr = ibv::workrequest::Simple<ibv::workrequest::Write>();
     // TODO: properly set up remote address
