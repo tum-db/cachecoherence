@@ -3,11 +3,15 @@
 #include <libibverbscpp.h>
 #include <vector>
 #include "rdma/Network.hpp"
+#include "rdma/QueuePair.hpp"
+#include "rdma/RcQueuePair.h"
+#include "util/RDMANetworking.h"
 
 struct QpInitAttr {
     std::unique_ptr<ibv::queuepair::InitAttributes> queuePairAttributes;
     std::unique_ptr<ibv::queuepair::Capabilities> capabilities;
 };
+
 
 QpInitAttr setupQpInitAttr(ibv::completions::CompletionQueue &sendCompletionQueue, ibv::completions::CompletionQueue &receiveCompletionQueue) {
     QpInitAttr init;
@@ -84,6 +88,8 @@ void connectRcQueuePair(ibv::queuepair::QueuePair& qp, uint32_t remoteQpn, uint1
 }
 
 int main() {
+    auto sock = l5::util::Socket::create(AF_UNIX, SOCK_STREAM, 0);
+    auto rdmaNetworking = l5::util::RDMANetworking(sock);
     char msg[8];
     auto list = ibv::device::DeviceList();
     auto ctx = list[0]->open();

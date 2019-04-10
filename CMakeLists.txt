@@ -6,10 +6,13 @@ set(CMAKE_CXX_STANDARD 17)
 file(GLOB COMMON_SOURCES
         src/*.cpp
         rdma/*.cpp
+        util/*.cpp
         )
 file(GLOB COMMON_HEADERS
         src/*.h
         rdma/*.h
+        rdma/*.hpp
+        util/*.h
         )
 
 SET(LINK_LIBRARIES
