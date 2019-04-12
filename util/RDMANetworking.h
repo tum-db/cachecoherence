@@ -7,30 +7,28 @@
 #include "socket/Socket.h"
 
 namespace l5 {
-namespace util {
-struct RDMANetworking {
-    rdma::Network network;
-    rdma::CompletionQueuePair completionQueue;
-    rdma::RcQueuePair queuePair;
+    namespace util {
+        struct RDMANetworking {
+            rdma::Network network;
+            rdma::CompletionQueuePair completionQueue;
+            rdma::RcQueuePair queuePair;
 
-    /// Exchange the basic RDMA connection info for the network and queues
-    explicit RDMANetworking(const Socket &sock);
-};
+            /// Exchange the basic RDMA connection info for the network and queues
+            explicit RDMANetworking(const Socket &sock);
+        };
 
-struct RmrInfo {
-    uint32_t bufferKey;
-    uint32_t readPosKey;
-    uintptr_t bufferAddress;
-    uintptr_t readPosAddress;
-};
+        struct RmrInfo {
+            uint32_t bufferKey;
+            uint32_t readPosKey;
+            uintptr_t bufferAddress;
+            uintptr_t readPosAddress;
+        };
 
-void
-receiveAndSetupRmr(const Socket &sock, ibv::memoryregion::RemoteAddress &buffer,
-                   ibv::memoryregion::RemoteAddress &readPos);
+        void receiveAndSetupRmr(const Socket &sock, ibv::memoryregion::RemoteAddress &buffer,
+                                ibv::memoryregion::RemoteAddress &readPos);
 
-void
-sendRmrInfo(const Socket &sock, const ibv::memoryregion::MemoryRegion &buffer,
-            const ibv::memoryregion::MemoryRegion &readPos);
-} // namespace util
+        void sendRmrInfo(const Socket &sock, const ibv::memoryregion::MemoryRegion &buffer,
+                         const ibv::memoryregion::MemoryRegion &readPos);
+    } // namespace util
 } // namespace l5
 #endif //L5RDMA_RDMANETWORKING_H
