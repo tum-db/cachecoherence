@@ -5,7 +5,7 @@
 #include "Node.h"
 
 Node::Node(rdma::Network &network,
-           rdma::CompletionQueuePair &completionQueuePair) : rcqp(network, completionQueuePair) {};
+           rdma::CompletionQueuePair &completionQueuePair) : rcqp(network, completionQueuePair) {}
 
 void send(const uint8_t *data, size_t length) {
 
