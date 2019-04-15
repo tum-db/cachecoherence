@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(medmm CXX)
+project(medmm)
 
 set(CMAKE_CXX_STANDARD 17)
 set(WARNINGS "-Wall -Wextra -Wnon-virtual-dtor -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wrestrict")
@@ -23,11 +23,15 @@ file(GLOB COMMON_HEADERS
 
 SET(LINK_LIBRARIES
         ibverbs
+
         )
 
 include_directories(include/libibverbscpp)
 
 add_library(medmm STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
+
 add_executable(main main.cpp)
 target_link_libraries(main medmm)
+target_link_libraries(medmm stdc++fs)
+
 target_link_libraries(medmm ${LINK_LIBRARIES})
