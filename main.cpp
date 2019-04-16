@@ -57,8 +57,8 @@ int main() {
     auto dataSize = 2u;
     std::string data(dataSize, 'A');
     auto net = rdma::Network();
-    auto completionqp = net.newCompletionQueuePair();
-    auto node = Node(net, completionqp);
+    auto &cq = net.getSharedCompletionQueue();
+    auto node = Node(net);
     //setup client or server
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
@@ -108,9 +108,8 @@ int main() {
     if (servOcli == 0) {
         l5::util::tcp::bind(socket, addr);
         l5::util::tcp::listen(socket);
-        auto accSock = l5::util::tcp::accept(socket);
 
-        const auto acced = l5::util::tcp::accept(socket);
+        auto acced = l5::util::tcp::accept(socket);
 
         auto recv = ibv::workrequest::Recv{};
         recv.setId(42);
@@ -134,7 +133,7 @@ int main() {
         write.setInline();
         write.setSignaled();
 
-        auto wc = completionqp.pollRecvWorkCompletionBlocking();
+        auto wc = node.rcqp..pollRecvWorkCompletionBlocking();
         node.rcqp.postRecvRequest(recv);
 
         auto recvPos = wc.getImmData();
@@ -147,7 +146,7 @@ int main() {
         write.setRemoteAddress(remoteMr.offset(destPos));
         write.setImmData(destPos);
         node.rcqp.postWorkRequest(write);
-        completionqp.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
     } else if (servOcli == 1) {
         connectSocket(socket);
@@ -176,11 +175,11 @@ int main() {
 
         auto destPos = randomDistribution(generator);
         write.setRemoteAddress(remoteMr.offset(destPos));
-       // write.setImmData(destPos);
+        write.setImmData(destPos);
         node.rcqp.postWorkRequest(write);
-        completionqp.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
-        auto wc = completionqp.pollRecvWorkCompletionBlocking();
+        auto wc = cq.pollRecvWorkCompletionBlocking();
         auto recvPos = wc.getImmData();
 
         node.rcqp.postRecvRequest(recv);
