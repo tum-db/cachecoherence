@@ -54,11 +54,10 @@ void error(const char *msg) {
 }
 
 int main() {
-    auto dataSize = 2u;
-    std::string data(dataSize, 'A');
+    std::string data = "test";
     auto net = rdma::Network();
     auto &cq = net.getSharedCompletionQueue();
-    auto node = Node(net);
+    auto node = Node(net, cq);
     //setup client or server
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
@@ -75,7 +74,7 @@ int main() {
             BIGBADBUFFER_SIZE * 2); // *2 just to be sure everything fits
     auto recvmr = net.registerMr(recvbuf.data(), recvbuf.size(),
                                  {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-
+/*
 
     std::cout << "Local QueuePair number: " << localQpn << '\n';
     std::cout << "Local Lid: " << localLid << '\n';
@@ -100,7 +99,8 @@ int main() {
     rawGid.global.subnet_prefix = subnetPrefix;
     rawGid.global.interface_id = interfaceId;
     auto remoteGid = ibv::Gid{rawGid};
-    auto remoteAddr = rdma::Address{remoteGid, remoteQpn, remoteLid};
+    */
+    auto remoteAddr = rdma::Address{localGid, localQpn, localLid};
 
     auto sendbuf = std::vector<char>(data.size());
     auto sendmr = net.registerMr(sendbuf.data(), sendbuf.size(), {});
@@ -108,9 +108,7 @@ int main() {
     if (servOcli == 0) {
         l5::util::tcp::bind(socket, addr);
         l5::util::tcp::listen(socket);
-
         auto acced = l5::util::tcp::accept(socket);
-
         auto recv = ibv::workrequest::Recv{};
         recv.setId(42);
         recv.setSge(nullptr, 0);
@@ -121,43 +119,49 @@ int main() {
         l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
         auto remoteMr = ibv::memoryregion::RemoteAddress{
                 reinterpret_cast<uintptr_t>(recvbuf.data()), recvmr->getRkey()};
+
         l5::util::tcp::write(acced, &remoteMr, sizeof(remoteMr));
         l5::util::tcp::read(acced, &remoteMr, sizeof(remoteMr));
 
         node.rcqp.connect(remoteAddr);
-
-        //   l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
 
         auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
         write.setLocalAddress(sendmr->getSlice());
         write.setInline();
         write.setSignaled();
 
-        auto wc = node.rcqp..pollRecvWorkCompletionBlocking();
+        std::cout << "wir sind hier line 133" << std::endl;
+        auto wc = cq.pollRecvWorkCompletionBlocking();
+        std::cout << "wir sind hier line 139" << std::endl;
+
         node.rcqp.postRecvRequest(recv);
+        std::cout << "wir sind hier line 143" << std::endl;
 
         auto recvPos = wc.getImmData();
+        std::cout << recvbuf.data() << std::endl;
 
         auto begin = recvbuf.begin() + recvPos;
-        auto end = begin + dataSize;
+        auto end = begin + data.size();
         std::copy(begin, end, sendbuf.begin());
+        std::cout << "wir sind hier line 149 -> before echo" << std::endl;
+
         // echo back the received data
         auto destPos = randomDistribution(generator);
         write.setRemoteAddress(remoteMr.offset(destPos));
         write.setImmData(destPos);
         node.rcqp.postWorkRequest(write);
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        std::cout << "should be done" << std::endl;
+
 
     } else if (servOcli == 1) {
         connectSocket(socket);
-
         std::copy(data.begin(), data.end(), sendbuf.begin());
         auto recv = ibv::workrequest::Recv{};
         recv.setId(42);
         recv.setSge(nullptr, 0);
         // *first* post recv to always have a recv pending, so incoming send don't get swallowed
         node.rcqp.postRecvRequest(recv);
-
 
         l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
         l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
@@ -176,20 +180,25 @@ int main() {
         auto destPos = randomDistribution(generator);
         write.setRemoteAddress(remoteMr.offset(destPos));
         write.setImmData(destPos);
+
         node.rcqp.postWorkRequest(write);
+        std::cout << "wir sind hier line 190" << std::endl;
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
         auto wc = cq.pollRecvWorkCompletionBlocking();
         auto recvPos = wc.getImmData();
+        std::cout << "wir sind hier line 194" << std::endl;
 
         node.rcqp.postRecvRequest(recv);
 
         auto begin = recvbuf.begin() + recvPos;
         auto end = begin + data.size();
+        std::cout << recvbuf.data() << std::endl;
         // check if the data is still the same
         if (not std::equal(begin, end, data.begin(), data.end())) {
             throw;
         }
+        std::cout << "should be done" << std::endl;
 
     }
 

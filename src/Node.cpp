@@ -4,8 +4,8 @@
 
 #include "Node.h"
 
-Node::Node(rdma::Network &network) :
-        rcqp(network) {
+Node::Node(rdma::Network &network, rdma::CompletionQueuePair &cqp) :
+        rcqp(network,cqp) {
 
 }
 

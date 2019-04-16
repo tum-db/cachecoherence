@@ -15,7 +15,7 @@ private:
 public:
     rdma::RcQueuePair rcqp;
 
-    Node(rdma::Network &network);
+    Node(rdma::Network &network, rdma::CompletionQueuePair &cqp);
     void send(const uint8_t *data, size_t length);
 
     std::vector<uint8_t> receive();
