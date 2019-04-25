@@ -11,14 +11,17 @@
 
 class Node {
 private:
+    rdma::RcQueuePair rcqp;
+    rdma::Network network;
+
 
 public:
-    rdma::RcQueuePair rcqp;
 
-    Node(rdma::Network &network, rdma::CompletionQueuePair &cqp);
-    void send(const uint8_t *data, size_t length);
+    Node();
 
-    std::vector<uint8_t> receive();
+    void send(std::string data, uint16_t port,char *ip);
+
+    std::vector<uint8_t> receive(uint16_t port,char *ip);
 
 };
 
