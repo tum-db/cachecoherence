@@ -85,7 +85,6 @@ std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, ui
     auto recv = ibv::workrequest::Recv{};
     recv.setId(42);
     recv.setSge(nullptr, 0);
-    // *first* post recv to always have a recv pending, so incoming send don't get swallowed
     rcqp.postRecvRequest(recv);
 
     l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
