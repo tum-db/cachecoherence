@@ -8,6 +8,7 @@
 
 #include "../util/RDMANetworking.h"
 #include "../rdma/CompletionQueuePair.hpp"
+#include "GlobalAddress.h"
 
 class Node {
 private:
@@ -15,11 +16,11 @@ private:
 
 public:
 
-    Node(rdma::Network &network);
+    explicit Node(rdma::Network &network);
 
-    void send(rdma::Network &network, std::string data, uint16_t port,char *ip);
+    void send(rdma::Network &network, std::string data, GlobalAddress gaddr);
 
-    std::vector<char, std::allocator<char>> receive(rdma::Network &network, uint16_t port, char *ip);
+    std::vector<char, std::allocator<char>> receive(rdma::Network &network,  GlobalAddress gaddr);
 
 };
 

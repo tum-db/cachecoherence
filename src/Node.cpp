@@ -3,7 +3,6 @@
 //
 
 #include <arpa/inet.h>
-#include <random>
 #include "Node.h"
 #include "../util/socket/tcp.h"
 
@@ -15,16 +14,9 @@ Node::Node(rdma::Network &network) :
         rcqp(network, network.getSharedCompletionQueue()) {
 }
 
-auto generator = std::default_random_engine{};
-auto randomDistribution = std::uniform_int_distribution<uint32_t>{0, BIGBADBUFFER_SIZE};
-
-void Node::send(rdma::Network &network, std::string data, uint16_t port, char *ip) {
+void Node::send(rdma::Network &network, std::string data,  GlobalAddress gaddr) {
 
     auto &cq = network.getSharedCompletionQueue();
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip, &addr.sin_addr);
     auto socket = l5::util::Socket::create();
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
     auto sendbuf = std::vector<char>(data.size());
@@ -34,7 +26,7 @@ void Node::send(rdma::Network &network, std::string data, uint16_t port, char *i
     auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
 
-    l5::util::tcp::connect(socket, addr);
+    l5::util::tcp::connect(socket, gaddr.getSockAddr());
 
     //connectSocket(socket);
     std::copy(data.begin(), data.end(), sendbuf.begin());
@@ -57,10 +49,8 @@ void Node::send(rdma::Network &network, std::string data, uint16_t port, char *i
     write.setLocalAddress(sendmr->getSlice());
     write.setInline();
     write.setSignaled();
-
-    auto destPos = randomDistribution(generator);
-    write.setRemoteAddress(remoteMr.offset(destPos));
-    write.setImmData(destPos);
+    write.setRemoteAddress(remoteMr);
+    write.setImmData(0);
 
     rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -68,18 +58,14 @@ void Node::send(rdma::Network &network, std::string data, uint16_t port, char *i
 
 }
 
-std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, uint16_t port, char *ip) {
+std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, GlobalAddress gaddr) {
     auto &cq = network.getSharedCompletionQueue();
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip, &addr.sin_addr);
     auto socket = l5::util::Socket::create();
     auto recvbuf = std::vector<char>(BIGBADBUFFER_SIZE * 2);
     auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::bind(socket, addr);
+    l5::util::tcp::bind(socket, gaddr.getSockAddr());
     l5::util::tcp::listen(socket);
     auto acced = l5::util::tcp::accept(socket);
     auto recv = ibv::workrequest::Recv{};
@@ -102,7 +88,9 @@ std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, ui
     rcqp.postRecvRequest(recv);
 
     auto recvPos = wc.getImmData();
-
+    recvbuf.begin() = recvbuf.begin()+recvPos;
     return recvbuf;
 
 }
+
+
