@@ -26,7 +26,7 @@ void Node::send(rdma::Network &network, std::string data,  GlobalAddress gaddr) 
     auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
 
-    l5::util::tcp::connect(socket, gaddr.getSockAddr());
+    l5::util::tcp::connect(socket, gaddr.getIp(), gaddr.getPort());
 
     //connectSocket(socket);
     std::copy(data.begin(), data.end(), sendbuf.begin());
@@ -65,7 +65,7 @@ std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, Gl
     auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::bind(socket, gaddr.getSockAddr());
+    l5::util::tcp::bind(socket, gaddr.getPort());
     l5::util::tcp::listen(socket);
     auto acced = l5::util::tcp::accept(socket);
     auto recv = ibv::workrequest::Recv{};

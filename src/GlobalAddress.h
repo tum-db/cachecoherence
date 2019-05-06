@@ -12,7 +12,8 @@ private:
     char *ip;
 public:
     GlobalAddress(uint16_t port,char *ip);
-    sockaddr_in getSockAddr();
+    char* getIp();
+    uint16_t getPort();
 };
 
 

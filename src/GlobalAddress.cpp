@@ -9,13 +9,11 @@
 
 
 GlobalAddress::GlobalAddress(uint16_t port, char *ip): port(port), ip(ip) {
-
 }
 
-sockaddr_in GlobalAddress::getSockAddr(){
-    sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip, &addr.sin_addr);
-    return addr;
+char* GlobalAddress::getIp(){
+    return ip;
+}
+uint16_t GlobalAddress::getPort(){
+    return port;
 }
