@@ -8,20 +8,30 @@
 
 #include "../util/RDMANetworking.h"
 #include "../rdma/CompletionQueuePair.hpp"
-#include "GlobalAddress.h"
+#include "../util/defs.h"
+#include "WorkRequest.h"
+#include <cstddef>
+
 
 class Node {
 private:
+    rdma::Network network;
+    uint16_t id;
     rdma::RcQueuePair rcqp;
 
 public:
 
-    explicit Node(rdma::Network &network);
+    explicit Node();
 
-    void send(rdma::Network &network, std::string data, GlobalAddress gaddr);
+    void send(void* data, size_t size);
 
-    std::vector<char, std::allocator<char>> receive(rdma::Network &network,  GlobalAddress gaddr);
+    void* receive();
 
+    GlobalAddress Malloc(size_t size);
+
+    GlobalAddress sendRemoteMalloc(size_t size);
+
+    bool isLocal(GlobalAddress gaddr);
 };
 
 

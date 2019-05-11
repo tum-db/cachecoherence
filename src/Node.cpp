@@ -5,31 +5,37 @@
 #include <arpa/inet.h>
 #include "Node.h"
 #include "../util/socket/tcp.h"
+#include <random>
+#include <cstdint>
+
 
 constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
+std::default_random_engine generator;
+std::uniform_int_distribution<int> distribution(0, 100);
 
 
-
-Node::Node(rdma::Network &network) :
-        rcqp(network, network.getSharedCompletionQueue()) {
+Node::Node() : network(), id(), rcqp(network, network.getSharedCompletionQueue()) {
+    id = distribution(generator);
 }
 
-void Node::send(rdma::Network &network, std::string data,  GlobalAddress gaddr) {
+bool Node::isLocal(GlobalAddress gaddr) {
+    return getNodeId(gaddr) == id;
+}
+
+void Node::send(void *data, size_t size) {
 
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    auto sendbuf = std::vector<char>(data.size());
-    auto sendmr = network.registerMr(sendbuf.data(), sendbuf.size(), {});
-    auto recvbuf = std::vector<char>(
-            BIGBADBUFFER_SIZE * 2); // *2 just to be sure everything fits
-    auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
+    //  auto sendbuf = new std::vector<std::byte>(size);
+    auto sendmr = network.registerMr(data, size, {});
+    auto recvbuf = malloc(size);
+    auto recvmr = network.registerMr(recvbuf, size,
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
 
-    l5::util::tcp::connect(socket, gaddr.getIp(), gaddr.getPort());
+    l5::util::tcp::connect(socket, ip, port);
 
-    //connectSocket(socket);
-    std::copy(data.begin(), data.end(), sendbuf.begin());
+//    std::copy(data.begin(), data.end(), sendbuf->begin());
     auto recv = ibv::workrequest::Recv{};
     recv.setId(42);
     recv.setSge(nullptr, 0);
@@ -38,9 +44,8 @@ void Node::send(rdma::Network &network, std::string data,  GlobalAddress gaddr) 
 
     l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
-    auto remoteMr = ibv::memoryregion::RemoteAddress{
-            reinterpret_cast<uintptr_t>(recvbuf.data()),
-            recvmr->getRkey()};
+    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
+                                                     recvmr->getRkey()};
     l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
     l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
 
@@ -58,14 +63,14 @@ void Node::send(rdma::Network &network, std::string data,  GlobalAddress gaddr) 
 
 }
 
-std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, GlobalAddress gaddr) {
+void *Node::receive() {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
-    auto recvbuf = std::vector<char>(BIGBADBUFFER_SIZE * 2);
-    auto recvmr = network.registerMr(recvbuf.data(), recvbuf.size(),
+    auto recvbuf = malloc(BIGBADBUFFER_SIZE * 2);
+    auto recvmr = network.registerMr(recvbuf, BIGBADBUFFER_SIZE * 2,
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::bind(socket, gaddr.getPort());
+    l5::util::tcp::bind(socket, port);
     l5::util::tcp::listen(socket);
     auto acced = l5::util::tcp::accept(socket);
     auto recv = ibv::workrequest::Recv{};
@@ -75,8 +80,8 @@ std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, Gl
 
     l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
-    auto remoteMr = ibv::memoryregion::RemoteAddress{
-            reinterpret_cast<uintptr_t>(recvbuf.data()), recvmr->getRkey()};
+    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
+                                                     recvmr->getRkey()};
 
     l5::util::tcp::write(acced, &remoteMr, sizeof(remoteMr));
     l5::util::tcp::read(acced, &remoteMr, sizeof(remoteMr));
@@ -88,7 +93,8 @@ std::vector<char, std::allocator<char>> Node::receive(rdma::Network &network, Gl
     rcqp.postRecvRequest(recv);
 
     auto recvPos = wc.getImmData();
-    recvbuf.begin() = recvbuf.begin()+recvPos;
+    std::cout << recvPos << std::endl;
+    //recvbuf.begin() = recvbuf.begin()+recvPos;
     return recvbuf;
 
 }

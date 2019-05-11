@@ -3,57 +3,46 @@
 //
 
 #include <cstdint>
-#include "GlobalAddress.h"
 #include "Node.h"
 #include <stdlib.h>
 #include <cstdio>
+#include "../util/defs.h"
+#include "WorkRequest.h"
 
 
-enum class CACHE_DIRECTORY_STATES {
-    UNSHARED = 0,
-    SHARED = 1,
-    DIRTY = 2
-};
-
-enum class LOCALREMOTE {
-    LOCAL = 0,
-    REMOTE = 1
-};
-
-void* malloc(Node node, GlobalAddress gaddr, uint16_t size, LOCALREMOTE lr){
-    if(lr == LOCALREMOTE::LOCAL){
-        auto buffer = malloc(size);
-        return buffer;
-    }
-    else if (lr == LOCALREMOTE::REMOTE){
-      /*  auto sendbuf = std::vector<char>(size);
-        auto sendmr = network.registerMr(sendbuf.data(), sendbuf.size(), {});
-        auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
-        write.setLocalAddress(sendmr->getSlice());
-        write.setInline();
-        write.setSignaled();
-        write.setRemoteAddress(remoteMr);
-        write.setImmData(0);*/
-      return nullptr;
-    }
-    else {
-        perror("This should not happen!");
-        return nullptr;
-    }
+GlobalAddress Node::sendRemoteMalloc(size_t size){
+ //  send(0, size);
+    return 0;
 }
 
-void free(GlobalAddress gaddr){
-    void* buffer; //TODO how is the location of the data determined?
+GlobalAddress Node::Malloc(size_t size) {
+    auto buffer = malloc(size);
+    if (buffer) {
+        auto gaddr = reinterpret_cast<GlobalAddress>(&buffer);
+        gaddr = gaddr << 16;
+        gaddr = gaddr + id;
+        std::cout << gaddr << std::endl;
+        return gaddr;
+    } else {
+        return sendRemoteMalloc(size);
+    }
+
+}
+
+
+
+void free(GlobalAddress gaddr) {
+    void *buffer; //TODO how is the location of the data determined?
 
     free(buffer);
 }
 
-void read(GlobalAddress gaddr, LOCALREMOTE lr){
-    if(lr == LOCALREMOTE::LOCAL){
+void read(WorkRequest wr, GlobalAddress gaddr, LOCALREMOTE lr) {
+    if (lr == LOCALREMOTE::LOCAL) {
 
     }
 }
 
-void write(GlobalAddress gaddr, LOCALREMOTE lr, uint16_t size){
+void write(GlobalAddress gaddr, LOCALREMOTE lr, uint16_t size) {
 
 }
