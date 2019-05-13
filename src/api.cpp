@@ -10,25 +10,25 @@
 #include "WorkRequest.h"
 
 
-GlobalAddress Node::sendRemoteMalloc(size_t size){
- //  send(0, size);
-    return 0;
+
+
+GlobalAddress Node::sendRemoteMalloc(size_t size) {
+    auto data = nullptr;
+    send(data, size, 1);
+    auto addr = receive();
+    return addr;
 }
 
 GlobalAddress Node::Malloc(size_t size) {
     auto buffer = malloc(size);
     if (buffer) {
-        auto gaddr = reinterpret_cast<GlobalAddress>(&buffer);
-        gaddr = gaddr << 16;
-        gaddr = gaddr + id;
-        std::cout << gaddr << std::endl;
+        GlobalAddress gaddr = {buffer, id};
         return gaddr;
     } else {
         return sendRemoteMalloc(size);
     }
 
 }
-
 
 
 void free(GlobalAddress gaddr) {

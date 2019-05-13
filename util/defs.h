@@ -9,10 +9,13 @@ const char ip[] = "127.0.0.1";
 const uint16_t port = 3000;
 
 
-typedef uint64_t GlobalAddress;
+struct GlobalAddress{
+    void* ptr;
+    uint16_t id;
+};
 
 inline uint16_t getNodeId(GlobalAddress gaddr){
-    return gaddr >> 16 &0xFF;
+    return gaddr.id;
 }
 /*
  * #define WID(gaddr) ((gaddr) >> 48)

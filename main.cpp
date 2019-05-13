@@ -9,6 +9,7 @@ int main() {
     auto test = node.Malloc(20);
     auto res = getNodeId(test);
     std::cout << res << std::endl;
+    std::cout << node.getID() << std::endl;
     //setup client or server
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
@@ -16,15 +17,13 @@ int main() {
 
     if (servOcli == 0) {
         auto result = node.receive();
-        auto *sp = static_cast<std::string*>(result);
-
-        std::cout << sp << std::endl;
+        std::cout << result.id << std::endl;
     } else if (servOcli == 1) {
         std::cout << "Enter data: ";
         std::string input;
         std::cin >> input;
         void* data = &input;
-        node.send(data, input.size());
+        node.send(data, input.size(), 0);
     }
     else {
         std::cout << "This was no valid Number!" << std::endl;

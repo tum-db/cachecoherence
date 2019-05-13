@@ -22,7 +22,7 @@ bool Node::isLocal(GlobalAddress gaddr) {
     return getNodeId(gaddr) == id;
 }
 
-void Node::send(void *data, size_t size) {
+void Node::send(void *data, size_t size, uint32_t immData) {
 
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
@@ -55,15 +55,14 @@ void Node::send(void *data, size_t size) {
     write.setInline();
     write.setSignaled();
     write.setRemoteAddress(remoteMr);
-    write.setImmData(0);
+    write.setImmData(immData);
 
     rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-
-
 }
 
-void *Node::receive() {
+
+GlobalAddress Node::receive() {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
     auto recvbuf = malloc(BIGBADBUFFER_SIZE * 2);
@@ -92,11 +91,15 @@ void *Node::receive() {
 
     rcqp.postRecvRequest(recv);
 
-    auto recvPos = wc.getImmData();
-    std::cout << recvPos << std::endl;
-    //recvbuf.begin() = recvbuf.begin()+recvPos;
-    return recvbuf;
+    auto immData = wc.getImmData();
+    if (immData == 0) {
 
+    } else if (immData == 1) {
+        size_t size = reinterpret_cast<size_t>(recvbuf);
+        return Malloc(size);
+    } else {
+        return GlobalAddress{recvbuf, 0};
+    }
 }
 
 

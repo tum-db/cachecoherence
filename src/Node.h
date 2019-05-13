@@ -23,15 +23,17 @@ public:
 
     explicit Node();
 
-    void send(void* data, size_t size);
+    void send(void* data, size_t size, uint32_t immData);
 
-    void* receive();
+    GlobalAddress receive();
 
     GlobalAddress Malloc(size_t size);
 
     GlobalAddress sendRemoteMalloc(size_t size);
 
     bool isLocal(GlobalAddress gaddr);
+
+    inline uint16_t getID(){return id;}
 };
 
 
