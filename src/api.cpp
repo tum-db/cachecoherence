@@ -27,10 +27,12 @@ GlobalAddress *Node::Malloc(size_t *size) {
 }
 
 
-void free(GlobalAddress gaddr) {
-    void *buffer; //TODO how is the location of the data determined?
-
-    free(buffer);
+void Node::Free(GlobalAddress *gaddr) {
+    if(isLocal(gaddr)){
+        free(gaddr->ptr);
+    } else {
+        send(gaddr, sizeof(GlobalAddress),3);
+    }
 }
 
 void read(WorkRequest wr, GlobalAddress gaddr, LOCALREMOTE lr) {

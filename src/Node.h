@@ -31,6 +31,8 @@ public:
 
     GlobalAddress *sendRemoteMalloc(size_t *size);
 
+    void Free(GlobalAddress *gaddr);
+
     bool isLocal(GlobalAddress *gaddr);
 
     inline uint16_t getID() { return id; }

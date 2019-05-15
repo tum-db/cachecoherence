@@ -113,6 +113,9 @@ GlobalAddress *Node::receive() {
     } else if (immData == 2) { //immdata = 2, if it is a reply
         auto newgaddr = reinterpret_cast<GlobalAddress *>(recvbuf);
         return newgaddr;
+    } else if (immData == 3) { //immdata = 3, it should be freed
+        Free(reinterpret_cast<GlobalAddress *>(recvbuf));
+        return nullptr;
     } else {
 
         return nullptr;
