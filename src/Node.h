@@ -23,17 +23,19 @@ public:
 
     explicit Node();
 
-    void send(void* data, size_t size, uint32_t immData);
+    GlobalAddress *send(void *data, size_t size, uint32_t immData);
 
-    GlobalAddress receive();
+    GlobalAddress *receive();
 
-    GlobalAddress Malloc(size_t size);
+    GlobalAddress *Malloc(size_t *size);
 
-    GlobalAddress sendRemoteMalloc(size_t size);
+    GlobalAddress *sendRemoteMalloc(size_t *size);
 
-    bool isLocal(GlobalAddress gaddr);
+    bool isLocal(GlobalAddress *gaddr);
 
-    inline uint16_t getID(){return id;}
+    inline uint16_t getID() { return id; }
+
+    inline void setID(uint16_t newID) {id = newID;}
 };
 
 

@@ -7,23 +7,23 @@
 #include "../util/socket/tcp.h"
 #include <random>
 #include <cstdint>
+#include <malloc.h>
 
 
 constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
-std::default_random_engine generator;
-std::uniform_int_distribution<int> distribution(0, 100);
+auto generator = std::default_random_engine{};
+auto randomDistribution = std::uniform_int_distribution<uint32_t>{0, 100};
 
 
 Node::Node() : network(), id(), rcqp(network, network.getSharedCompletionQueue()) {
-    id = distribution(generator);
+    id = randomDistribution(generator);
 }
 
-bool Node::isLocal(GlobalAddress gaddr) {
+bool Node::isLocal(GlobalAddress *gaddr) {
     return getNodeId(gaddr) == id;
 }
 
-void Node::send(void *data, size_t size, uint32_t immData) {
-
+GlobalAddress *Node::send(void *data, size_t size, uint32_t immData) {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
@@ -35,15 +35,10 @@ void Node::send(void *data, size_t size, uint32_t immData) {
 
     l5::util::tcp::connect(socket, ip, port);
 
-//    std::copy(data.begin(), data.end(), sendbuf->begin());
-    auto recv = ibv::workrequest::Recv{};
-    recv.setId(42);
-    recv.setSge(nullptr, 0);
-    // *first* post recv to always have a recv pending, so incoming send don't get swallowed
-    rcqp.postRecvRequest(recv);
 
     l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
+
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
     l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
@@ -59,10 +54,21 @@ void Node::send(void *data, size_t size, uint32_t immData) {
 
     rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
+    //    std::copy(data.begin(), data.end(), sendbuf->begin());
+    auto recv = ibv::workrequest::Recv{};
+    recv.setId(randomDistribution(generator));
+    recv.setSge(nullptr, 0);
+    // *first* post recv to always have a recv pending, so incoming send don't get swallowed
+    rcqp.postRecvRequest(recv);
+    auto wc = cq.pollRecvWorkCompletionBlocking();
+    auto recvImmData = wc.getImmData();
+    std::cout << "got this immdata: " << recvImmData << std::endl;
+
+    return reinterpret_cast<GlobalAddress *>(recvbuf);
 }
 
-
-GlobalAddress Node::receive() {
+GlobalAddress *Node::receive() {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
     auto recvbuf = malloc(BIGBADBUFFER_SIZE * 2);
@@ -73,7 +79,7 @@ GlobalAddress Node::receive() {
     l5::util::tcp::listen(socket);
     auto acced = l5::util::tcp::accept(socket);
     auto recv = ibv::workrequest::Recv{};
-    recv.setId(42);
+    recv.setId(randomDistribution(generator));
     recv.setSge(nullptr, 0);
     rcqp.postRecvRequest(recv);
 
@@ -88,18 +94,31 @@ GlobalAddress Node::receive() {
     rcqp.connect(remoteAddr);
 
     auto wc = cq.pollRecvWorkCompletionBlocking();
-
-    rcqp.postRecvRequest(recv);
-
     auto immData = wc.getImmData();
-    if (immData == 0) {
 
-    } else if (immData == 1) {
-        size_t size = reinterpret_cast<size_t>(recvbuf);
-        return Malloc(size);
+    if (immData == 1) { //immdata = 1, if it comes from another server
+        auto size = reinterpret_cast<size_t *>(recvbuf);
+        auto newgaddr = Malloc(size);
+        auto sendmr = network.registerMr(newgaddr, sizeof(GlobalAddress), {});
+        auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
+        write.setLocalAddress(sendmr->getSlice());
+        write.setInline();
+        write.setSignaled();
+        write.setRemoteAddress(remoteMr);
+        write.setImmData(immData);
+
+        rcqp.postWorkRequest(write);
+        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        return newgaddr;
+    } else if (immData == 2) { //immdata = 2, if it is a reply
+        auto newgaddr = reinterpret_cast<GlobalAddress *>(recvbuf);
+        return newgaddr;
     } else {
-        return GlobalAddress{recvbuf, 0};
+
+        return nullptr;
     }
+
+
 }
 
 

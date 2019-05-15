@@ -10,12 +10,12 @@ const uint16_t port = 3000;
 
 
 struct GlobalAddress{
-    void* ptr;
+    uint64_t *ptr;
     uint16_t id;
 };
 
-inline uint16_t getNodeId(GlobalAddress gaddr){
-    return gaddr.id;
+inline uint16_t getNodeId(GlobalAddress *gaddr){
+    return gaddr->id;
 }
 /*
  * #define WID(gaddr) ((gaddr) >> 48)
