@@ -12,18 +12,31 @@ const uint16_t port = 3000;
 
 struct __attribute__ ((packed)) GlobalAddress {
     size_t size;
-    uint64_t ptr;
+    uint64_t *ptr;
     uint16_t id;
 };
 
-struct SendData {
+struct __attribute__ ((packed)) SendData {
+    GlobalAddress *ga;
     size_t size;
-    uint8_t *data;
+    uint64_t *data;
 };
 
 inline uint16_t getNodeId(GlobalAddress *gaddr) {
     return gaddr->id;
 }
+
+
+enum CACHE_DIRECTORY_STATES {
+    UNSHARED = 0,
+    SHARED = 1,
+    DIRTY = 2
+};
+
+struct __attribute__ ((packed)) Lock {
+    CACHE_DIRECTORY_STATES state;
+    uint16_t id;
+};
 /*
  * #define WID(gaddr) ((gaddr) >> 48)
 

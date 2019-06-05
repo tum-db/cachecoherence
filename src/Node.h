@@ -12,18 +12,14 @@
 #include <cstddef>
 
 
-enum CACHE_DIRECTORY_STATES {
-    UNSHARED = 0,
-    SHARED = 1,
-    DIRTY = 2
-};
-
 class Node {
 private:
     rdma::Network network;
     uint16_t id;
     rdma::RcQueuePair rcqp;
-    uint64_t* locklist;
+    Lock* locklist;
+
+    void sendLockToHomeNode(CACHE_DIRECTORY_STATES state);
 
 public:
 
@@ -31,7 +27,7 @@ public:
 
     GlobalAddress *sendAddress(void *data, size_t size, uint32_t immData);
 
-    void *sendData(SendData *data, uint32_t immData);
+    GlobalAddress *sendData(SendData *data, uint32_t immData);
 
     void receive();
 
@@ -39,7 +35,7 @@ public:
 
     void Free(GlobalAddress *gaddr);
 
-    void *write(GlobalAddress *gaddr, SendData *data);
+    GlobalAddress *write(SendData *data);
 
     void read(GlobalAddress *gaddr, void *data);
 

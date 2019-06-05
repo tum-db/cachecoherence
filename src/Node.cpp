@@ -23,6 +23,18 @@ bool Node::isLocal(GlobalAddress *gaddr) {
     return getNodeId(gaddr) == id;
 }
 
+ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>
+createWriteWithImm(ibv::memoryregion::Slice slice,
+                   ibv::memoryregion::RemoteAddress remoteMr, uint32_t immData) {
+    auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
+    write.setLocalAddress(slice);
+    write.setInline();
+    write.setSignaled();
+    write.setRemoteAddress(remoteMr);
+    write.setImmData(immData);
+    return write;
+}
+
 GlobalAddress *Node::sendAddress(void *data, size_t size, uint32_t immData) {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
@@ -41,19 +53,13 @@ GlobalAddress *Node::sendAddress(void *data, size_t size, uint32_t immData) {
     l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
 
     rcqp.connect(remoteAddr);
-    auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
-    write.setLocalAddress(sendmr->getSlice());
-    write.setInline();
-    write.setSignaled();
-    write.setRemoteAddress(remoteMr);
-    write.setImmData(immData);
+    auto write = createWriteWithImm(sendmr->getSlice(),remoteMr,immData);
     rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
     auto recv = ibv::workrequest::Recv{};
     recv.setId(randomDistribution(generator));
     recv.setSge(nullptr, 0);
-    // *first* post recv to always have a recv pending, so incoming send don't get swallowed
     rcqp.postRecvRequest(recv);
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto recvImmData = wc.getImmData();
@@ -63,7 +69,7 @@ GlobalAddress *Node::sendAddress(void *data, size_t size, uint32_t immData) {
 }
 
 
-void *Node::sendData(SendData *data, uint32_t immData) {
+GlobalAddress *Node::sendData(SendData *data, uint32_t immData) {
     auto &cq = network.getSharedCompletionQueue();
     auto socket = l5::util::Socket::create();
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
@@ -88,21 +94,15 @@ void *Node::sendData(SendData *data, uint32_t immData) {
     l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
 
     rcqp.connect(remoteAddr);
-    auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
-    write.setLocalAddress(sendmr->getSlice());
-    write.setInline();
-    write.setSignaled();
-    write.setRemoteAddress(remoteMr);
-    write.setImmData(immData);
+    auto write = createWriteWithImm(sendmr->getSlice(),remoteMr,immData);
     rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     auto recv = ibv::workrequest::Recv{};
     recv.setId(randomDistribution(generator));
     recv.setSge(nullptr, 0);
-    // *first* post recv to always have a recv pending, so incoming send don't get swallowed
     rcqp.postRecvRequest(recv);
     cq.pollRecvWorkCompletionBlocking();
-    return recvbuf;
+    return static_cast<GlobalAddress *>(recvbuf);
 }
 
 
@@ -113,9 +113,11 @@ void Node::receive() {
     auto recvmr = network.registerMr(recvbuf, BIGBADBUFFER_SIZE * 2,
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
+
     l5::util::tcp::bind(socket, port);
     l5::util::tcp::listen(socket);
     auto acced = l5::util::tcp::accept(socket);
+
     auto recv = ibv::workrequest::Recv{};
     recv.setId(randomDistribution(generator));
     recv.setSge(nullptr, 0);
@@ -138,14 +140,7 @@ void Node::receive() {
         auto newgaddr = Malloc(size);
         auto sendmr = network.registerMr(newgaddr, sizeof(GlobalAddress), {});
         std::cout << newgaddr->size << ", " << newgaddr->id << ", " << newgaddr->ptr << std::endl;
-
-        auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
-        write.setLocalAddress(sendmr->getSlice());
-        write.setInline();
-        write.setSignaled();
-        write.setRemoteAddress(remoteMr);
-        write.setImmData(0);
-
+        auto write = createWriteWithImm(sendmr->getSlice(),remoteMr,0);
         rcqp.postWorkRequest(write);
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     } else if (immData == 2) { //immdata = 2, if it is a reply
@@ -153,8 +148,12 @@ void Node::receive() {
         Free(reinterpret_cast<GlobalAddress *>(recvbuf));
     } else if (immData == 4) { //immdata = 4, write
         auto data = reinterpret_cast<SendData *>(recvbuf);
+        auto result = write(data);
     } else {
         return;
     }
 }
 
+void sendLock(Lock lock) {
+
+}
