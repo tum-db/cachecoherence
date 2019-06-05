@@ -18,7 +18,7 @@ int main() {
     } else if (servOcli == 1) {
         node.setID(15);
         auto size = new size_t(20);
-        auto test = node.Malloc(size);
+        auto test = node.sendAddress(size, *size, 1);
         auto res = getNodeId(test);
         std::cout << res << std::endl;
         std::cout << node.getID() << std::endl;

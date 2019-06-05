@@ -10,9 +10,9 @@ const char ip[] = "127.0.0.1";
 const uint16_t port = 3000;
 
 
-struct GlobalAddress {
+struct __attribute__ ((packed)) GlobalAddress {
     size_t size;
-    uint64_t *ptr;
+    uint64_t ptr;
     uint16_t id;
 };
 

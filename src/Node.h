@@ -48,8 +48,6 @@ public:
     inline uint16_t getID() { return id; }
 
     inline void setID(uint16_t newID) {id = newID;}
-
-
 };
 
 
