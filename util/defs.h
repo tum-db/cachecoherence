@@ -9,6 +9,8 @@
 const char ip[] = "127.0.0.1";
 const uint16_t port = 3000;
 
+const uint16_t homenode = 1;
+
 
 struct __attribute__ ((packed)) GlobalAddress {
     size_t size;
@@ -17,9 +19,9 @@ struct __attribute__ ((packed)) GlobalAddress {
 };
 
 struct __attribute__ ((packed)) SendData {
-    GlobalAddress *ga;
     size_t size;
     uint64_t *data;
+    GlobalAddress *ga;
 };
 
 inline uint16_t getNodeId(GlobalAddress *gaddr) {
@@ -34,8 +36,8 @@ enum CACHE_DIRECTORY_STATES {
 };
 
 struct __attribute__ ((packed)) Lock {
-    CACHE_DIRECTORY_STATES state;
     uint16_t id;
+    CACHE_DIRECTORY_STATES state;
 };
 /*
  * #define WID(gaddr) ((gaddr) >> 48)

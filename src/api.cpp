@@ -30,8 +30,13 @@ void Node::Free(GlobalAddress *gaddr) {
 
 
 void Node::sendLockToHomeNode(CACHE_DIRECTORY_STATES state){
-    auto lock = new Lock{state,id};
-
+    if (id == homenode){
+        locks.insert(std::pair<uint16_t,CACHE_DIRECTORY_STATES>(id,state));
+    }
+    else {
+        auto lock = new Lock{id, state};
+        sendLock(lock, 5);
+    }
 
 }
 
@@ -41,20 +46,31 @@ void Node::read(GlobalAddress *gaddr, void *data) {
     }
 }
 
+CACHE_DIRECTORY_STATES Node::getLock(uint16_t id){
+    auto state = locks.find(id);
+    return state->second;
+
+}
+
 GlobalAddress *Node::write(SendData *data) {
     if (isLocal(data->ga)) {
         sendLockToHomeNode(DIRTY);
-        if (data->ga->size == data->size) {
+ /*       if (data->ga->size == data->size) {
             data->ga->ptr = data->data;
         } else {
             data->ga->ptr = static_cast<uint64_t *>(realloc(data->ga->ptr, data->size));
             data->ga->ptr = data->data;
-        }
+        }*/
         return data->ga;
     } else {
-        auto immData = 4;
-        auto result = sendData(data, immData);
-        return result;
+        auto l = getLock(data->ga->id);
+        if (l==UNSHARED) {
+            auto immData = 4;
+         //   auto result = sendData(data, immData);
+            return nullptr;
+        } else {
+            return nullptr;
+        }
     }
 }
 

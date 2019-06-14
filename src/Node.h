@@ -10,6 +10,7 @@
 #include "../rdma/CompletionQueuePair.hpp"
 #include "../util/defs.h"
 #include <cstddef>
+#include <map>
 
 
 class Node {
@@ -17,9 +18,16 @@ private:
     rdma::Network network;
     uint16_t id;
     rdma::RcQueuePair rcqp;
-    Lock* locklist;
+    std::map<uint16_t, CACHE_DIRECTORY_STATES> locks;
 
     void sendLockToHomeNode(CACHE_DIRECTORY_STATES state);
+
+    CACHE_DIRECTORY_STATES getLock(uint16_t id);
+
+    void handleReceivedLocks(void *recvbuf);
+
+    void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                          rdma::CompletionQueuePair *cq);
 
 public:
 
@@ -27,7 +35,9 @@ public:
 
     GlobalAddress *sendAddress(void *data, size_t size, uint32_t immData);
 
-    GlobalAddress *sendData(SendData *data, uint32_t immData);
+    void sendData(SendData *data, uint32_t immData);
+    void sendLock(Lock *lock, uint32_t immData);
+
 
     void receive();
 
@@ -43,7 +53,7 @@ public:
 
     inline uint16_t getID() { return id; }
 
-    inline void setID(uint16_t newID) {id = newID;}
+    inline void setID(uint16_t newID) { id = newID; }
 };
 
 
