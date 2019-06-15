@@ -9,10 +9,10 @@
 #include "../util/defs.h"
 
 
-GlobalAddress *Node::Malloc(size_t *size) {
+defs::GlobalAddress *Node::Malloc(size_t *size) {
     auto buffer = malloc(*size);
     if (buffer) {
-        auto gaddr = new GlobalAddress{*size, reinterpret_cast<uint64_t *>(buffer), id};
+        auto gaddr = new defs::GlobalAddress{*size, reinterpret_cast<uint64_t *>(buffer), id};
         return gaddr;
     } else {
         return sendAddress(size, *size, 1);
@@ -20,54 +20,55 @@ GlobalAddress *Node::Malloc(size_t *size) {
 }
 
 
-void Node::Free(GlobalAddress *gaddr) {
+void Node::Free(defs::GlobalAddress *gaddr) {
     if (isLocal(gaddr)) {
         free(gaddr->ptr);
     } else {
-        sendAddress(gaddr, sizeof(GlobalAddress), 3);
+        sendAddress(gaddr, sizeof(defs::GlobalAddress), 3);
     }
 }
 
 
-void Node::sendLockToHomeNode(CACHE_DIRECTORY_STATES state){
-    if (id == homenode){
-        locks.insert(std::pair<uint16_t,CACHE_DIRECTORY_STATES>(id,state));
+void Node::sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state){
+    if (id == defs::homenode){
+        locks.insert(std::pair<uint16_t,defs::CACHE_DIRECTORY_STATES>(id,state));
     }
     else {
-        auto lock = new Lock{id, state};
+        auto lock = new defs::Lock{id, state};
         sendLock(lock, 5);
     }
 
 }
 
-void Node::read(GlobalAddress *gaddr, void *data) {
+void Node::read(defs::GlobalAddress *gaddr, void *data) {
     if (isLocal(gaddr)) {
 
     }
 }
 
-CACHE_DIRECTORY_STATES Node::getLock(uint16_t id){
+defs::CACHE_DIRECTORY_STATES Node::getLock(uint16_t id){
     auto state = locks.find(id);
     return state->second;
 
 }
 
-GlobalAddress *Node::write(SendData *data) {
+defs::GlobalAddress *Node::write(defs::SendData *data) {
     if (isLocal(data->ga)) {
-        sendLockToHomeNode(DIRTY);
- /*       if (data->ga->size == data->size) {
+        sendLockToHomeNode(defs::DIRTY);
+        if (data->ga->size == data->size) {
             data->ga->ptr = data->data;
         } else {
             data->ga->ptr = static_cast<uint64_t *>(realloc(data->ga->ptr, data->size));
             data->ga->ptr = data->data;
-        }*/
+        }
+    //    sendLockToHomeNode(defs::UNSHARED);
         return data->ga;
     } else {
         auto l = getLock(data->ga->id);
-        if (l==UNSHARED) {
+        if (l==defs::UNSHARED) {
             auto immData = 4;
-         //   auto result = sendData(data, immData);
-            return nullptr;
+            auto result = sendData(data, immData);
+            return result;
         } else {
             return nullptr;
         }

@@ -18,43 +18,47 @@ private:
     rdma::Network network;
     uint16_t id;
     rdma::RcQueuePair rcqp;
-    std::map<uint16_t, CACHE_DIRECTORY_STATES> locks;
+    std::map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
 
-    void sendLockToHomeNode(CACHE_DIRECTORY_STATES state);
+    void sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state);
 
-    CACHE_DIRECTORY_STATES getLock(uint16_t id);
+    defs::CACHE_DIRECTORY_STATES getLock(uint16_t id);
 
     void handleReceivedLocks(void *recvbuf);
 
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
+    void handleWrite(void* recvbuf, ibv::memoryregion::RemoteAddress
+    remoteAddr, rdma::CompletionQueuePair *cq);
 
 public:
 
     explicit Node();
 
-    GlobalAddress *sendAddress(void *data, size_t size, uint32_t immData);
+    defs::GlobalAddress *sendAddress(void *data, size_t size, uint32_t immData);
 
-    void sendData(SendData *data, uint32_t immData);
-    void sendLock(Lock *lock, uint32_t immData);
+    defs::GlobalAddress *sendData(defs::SendData *data, uint32_t immData);
+    void sendLock(defs::Lock *lock, uint32_t immData);
 
 
     void receive();
 
-    GlobalAddress *Malloc(size_t *size);
+    defs::GlobalAddress *Malloc(size_t *size);
 
-    void Free(GlobalAddress *gaddr);
+    void Free(defs::GlobalAddress *gaddr);
 
-    GlobalAddress *write(SendData *data);
+    defs::GlobalAddress *write(defs::SendData *data);
 
-    void read(GlobalAddress *gaddr, void *data);
+    void read(defs::GlobalAddress *gaddr, void *data);
 
-    bool isLocal(GlobalAddress *gaddr);
+    bool isLocal(defs::GlobalAddress *gaddr);
 
     inline uint16_t getID() { return id; }
 
     inline void setID(uint16_t newID) { id = newID; }
 };
+
+
 
 
 #endif //MEDMM_NODE_H
