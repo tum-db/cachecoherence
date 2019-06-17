@@ -19,6 +19,7 @@ private:
     uint16_t id;
     rdma::RcQueuePair rcqp;
     std::map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
+    l5::util::Socket socket;
 
     void sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state);
 
@@ -28,20 +29,31 @@ private:
 
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
-    void handleWrite(void* recvbuf, ibv::memoryregion::RemoteAddress
+
+    void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq);
+
+    l5::util::Socket connectServerSocket();
 
 public:
 
     explicit Node();
 
-    defs::GlobalAddress *sendAddress(void *data, size_t size, uint32_t immData);
+    void connectClientSocket();
+    inline void closeClientSocket(){socket.close();};
+
+    defs::GlobalAddress *
+    sendAddress(void *data, size_t size, uint32_t immData);
 
     defs::GlobalAddress *sendData(defs::SendData *data, uint32_t immData);
+
     void sendLock(defs::Lock *lock, uint32_t immData);
 
 
-    void receive();
+    void connectAndReceive();
+
+    void receive(l5::util::Socket *acced);
+
 
     defs::GlobalAddress *Malloc(size_t *size);
 
@@ -57,8 +69,6 @@ public:
 
     inline void setID(uint16_t newID) { id = newID; }
 };
-
-
 
 
 #endif //MEDMM_NODE_H

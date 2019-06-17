@@ -21,9 +21,11 @@ defs::GlobalAddress *Node::Malloc(size_t *size) {
 
 
 void Node::Free(defs::GlobalAddress *gaddr) {
+    std::cout << "Freeing whoop" << std::endl;
     if (isLocal(gaddr)) {
         free(gaddr->ptr);
     } else {
+        std::cout << "sending address to free" << std::endl;
         sendAddress(gaddr, sizeof(defs::GlobalAddress), 3);
     }
 }
@@ -61,7 +63,7 @@ defs::GlobalAddress *Node::write(defs::SendData *data) {
             data->ga->ptr = static_cast<uint64_t *>(realloc(data->ga->ptr, data->size));
             data->ga->ptr = data->data;
         }
-    //    sendLockToHomeNode(defs::UNSHARED);
+        sendLockToHomeNode(defs::UNSHARED);
         return data->ga;
     } else {
         auto l = getLock(data->ga->id);

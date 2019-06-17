@@ -6,29 +6,15 @@
 #include "Node.h"
 #include "../util/socket/tcp.h"
 
-void Node::receive() {
+void Node::receive(l5::util::Socket *acced) {
     auto &cq = network.getSharedCompletionQueue();
-    auto socket = l5::util::Socket::create();
     auto recvbuf = malloc(defs::BIGBADBUFFER_SIZE * 2);
     auto recvmr = network.registerMr(recvbuf, defs::BIGBADBUFFER_SIZE * 2,
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-    auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-
-    l5::util::tcp::bind(socket, defs::port);
-    //   auto x = 0;
-    //   while (true) {
-
-    l5::util::tcp::listen(socket);
-    auto acced = l5::util::tcp::accept(socket);
-    l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(acced, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(acced, &remoteMr, sizeof(remoteMr));
-
-    // if (x == 0)
-    rcqp.connect(remoteAddr);
+    l5::util::tcp::write(*acced, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(*acced, &remoteMr, sizeof(remoteMr));
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     rcqp.postRecvRequest(recv);
@@ -66,7 +52,24 @@ void Node::receive() {
             //    }
             //  x += 1;
     }
-    socket.close();
+}
+
+l5::util::Socket Node::connectServerSocket() {
+    auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
+    l5::util::tcp::bind(socket, defs::port);
+    l5::util::tcp::listen(socket);
+    auto acced = l5::util::tcp::accept(socket);
+    l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
+    rcqp.connect(remoteAddr);
+    return acced;
+}
+
+void Node::connectAndReceive() {
+    auto acced = connectServerSocket();
+    while (true) {
+        receive(&acced);
+    }
 }
 
 void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress
@@ -88,7 +91,7 @@ void Node::handleReceivedLocks(void *recvbuf) {
     locks.insert(std::make_pair(lockId, lock->state));
 }
 
-void Node::handleWrite(void* recvbuf, ibv::memoryregion::RemoteAddress
+void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
 remoteAddr, rdma::CompletionQueuePair *cq) {
     auto data = reinterpret_cast<defs::SendData *>(recvbuf);
     auto result = write(data);
