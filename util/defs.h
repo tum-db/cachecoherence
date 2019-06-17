@@ -48,17 +48,5 @@ namespace defs {
     ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>
     createWriteWithImm(ibv::memoryregion::Slice slice,
                        ibv::memoryregion::RemoteAddress remoteMr, uint32_t immData);
-/*
- * #define WID(gaddr) ((gaddr) >> 48)
-
-int GetWorkerId() {
-    //TODO
-    return 0;
-}
-bool IsLocal(GlobalAddress addr) {
-    return WID(addr) == GetWorkerId();
-}
-
-*/
 }
 #endif //MEDMM_DEFS_H

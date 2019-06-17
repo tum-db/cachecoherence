@@ -20,13 +20,19 @@ defs::GlobalAddress *Node::Malloc(size_t *size) {
 }
 
 
-void Node::Free(defs::GlobalAddress *gaddr) {
+defs::GlobalAddress *Node::Free(defs::GlobalAddress *gaddr) {
     std::cout << "Freeing whoop" << std::endl;
     if (isLocal(gaddr)) {
         free(gaddr->ptr);
+        std::cout << "Freed..." << std::endl;
+        return new defs::GlobalAddress{0, nullptr, id};
     } else {
         std::cout << "sending address to free" << std::endl;
-        sendAddress(gaddr, sizeof(defs::GlobalAddress), 3);
+        auto res = sendAddress(gaddr, sizeof(defs::GlobalAddress), 3);
+        std::cout << "freed, id: " << res->id << std::endl;
+        return res;
+
+
     }
 }
 

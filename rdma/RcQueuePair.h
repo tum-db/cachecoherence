@@ -14,6 +14,12 @@ namespace rdma {
         void connect(const Address &address) override;
 
         void connect(const Address &address, uint8_t port, uint8_t retryCount = 0);
+
+        inline void setToResetState(){
+            using Mod = ibv::queuepair::AttrMask;
+            ibv::queuepair::Attributes attributes{};
+            attributes.setQpState(ibv::queuepair::State::RESET);
+            qp->modify(attributes, {Mod::STATE});};
     };
 }
 

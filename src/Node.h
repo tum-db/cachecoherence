@@ -30,6 +30,9 @@ private:
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
 
+    void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                    rdma::CompletionQueuePair *cq);
+
     void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq);
 
@@ -40,7 +43,7 @@ public:
     explicit Node();
 
     void connectClientSocket();
-    inline void closeClientSocket(){socket.close();};
+    void closeClientSocket();
 
     defs::GlobalAddress *
     sendAddress(void *data, size_t size, uint32_t immData);
@@ -57,7 +60,7 @@ public:
 
     defs::GlobalAddress *Malloc(size_t *size);
 
-    void Free(defs::GlobalAddress *gaddr);
+    defs::GlobalAddress *Free(defs::GlobalAddress *gaddr);
 
     defs::GlobalAddress *write(defs::SendData *data);
 

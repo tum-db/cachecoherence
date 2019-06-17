@@ -6,6 +6,16 @@
 #include "Node.h"
 #include "../util/socket/tcp.h"
 
+l5::util::Socket Node::connectServerSocket() {
+    auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
+    l5::util::tcp::listen(socket);
+    auto acced = l5::util::tcp::accept(socket);
+    l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
+    rcqp.connect(remoteAddr);
+    return acced;
+}
+
 void Node::receive(l5::util::Socket *acced) {
     auto &cq = network.getSharedCompletionQueue();
     auto recvbuf = malloc(defs::BIGBADBUFFER_SIZE * 2);
@@ -33,7 +43,7 @@ void Node::receive(l5::util::Socket *acced) {
         }
         case 3://immdata = 3, it should be freed
         {
-            Free(reinterpret_cast<defs::GlobalAddress *>(recvbuf));
+            handleFree(recvbuf, remoteMr, &cq);
             break;
         }
         case 4:  //immdata = 4, write
@@ -46,28 +56,23 @@ void Node::receive(l5::util::Socket *acced) {
             handleReceivedLocks(recvbuf);
             break;
         }
+        case 6:
+        {
+            rcqp.setToResetState();
+            *acced = connectServerSocket();
+            break;
+        }
         default: {
             return;
         }
-            //    }
-            //  x += 1;
     }
 }
 
-l5::util::Socket Node::connectServerSocket() {
-    auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::bind(socket, defs::port);
-    l5::util::tcp::listen(socket);
-    auto acced = l5::util::tcp::accept(socket);
-    l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
-    rcqp.connect(remoteAddr);
-    return acced;
-}
-
 void Node::connectAndReceive() {
+    l5::util::tcp::bind(socket, defs::port);
     auto acced = connectServerSocket();
     while (true) {
+        std::cout << "new receive YEAH" << std::endl;
         receive(&acced);
     }
 }
@@ -79,6 +84,15 @@ remoteAddr, rdma::CompletionQueuePair *cq) {
     auto sendmr = network.registerMr(newgaddr, sizeof(defs::GlobalAddress), {});
     std::cout << newgaddr->size << ", " << newgaddr->id << ", " << newgaddr->ptr
               << std::endl;
+    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, 0);
+    rcqp.postWorkRequest(write);
+    cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+}
+void Node::handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress
+remoteAddr, rdma::CompletionQueuePair *cq){
+    auto gaddr = reinterpret_cast<defs::GlobalAddress *>(recvbuf);
+    auto res = Free(gaddr);
+    auto sendmr = network.registerMr(res, sizeof(defs::GlobalAddress), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, 0);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
