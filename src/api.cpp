@@ -12,10 +12,10 @@
 defs::GlobalAddress *Node::Malloc(size_t *size) {
     auto buffer = malloc(*size);
     if (buffer) {
-        auto gaddr = new defs::GlobalAddress{*size, reinterpret_cast<uint64_t *>(buffer), id};
+        auto gaddr = new defs::GlobalAddress{*size, reinterpret_cast<uint64_t>(buffer), id};
         return gaddr;
     } else {
-        return sendAddress(size, *size, 1);
+        return sendAddress(size, defs::IMMDATA::MALLOC);
     }
 }
 
@@ -23,59 +23,71 @@ defs::GlobalAddress *Node::Malloc(size_t *size) {
 defs::GlobalAddress *Node::Free(defs::GlobalAddress *gaddr) {
     std::cout << "Freeing whoop" << std::endl;
     if (isLocal(gaddr)) {
-        free(gaddr->ptr);
+        free(reinterpret_cast<void *>(gaddr->ptr));
         std::cout << "Freed..." << std::endl;
-        return new defs::GlobalAddress{0, nullptr, id};
+        return new defs::GlobalAddress{0, 0, id};
     } else {
         std::cout << "sending address to free" << std::endl;
-        auto res = sendAddress(gaddr, sizeof(defs::GlobalAddress), 3);
+        auto res = sendAddress(gaddr, defs::IMMDATA::FREE);
         std::cout << "freed, id: " << res->id << std::endl;
         return res;
-
-
     }
 }
 
 
-void Node::sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state){
-    if (id == defs::homenode){
-        locks.insert(std::pair<uint16_t,defs::CACHE_DIRECTORY_STATES>(id,state));
-    }
-    else {
+void Node::sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state) {
+    if (id == defs::homenode) {
+        locks.insert(std::pair<uint16_t, defs::CACHE_DIRECTORY_STATES>(id, state));
+    } else {
         auto lock = new defs::Lock{id, state};
-        sendLock(lock, 5);
+        sendLock(lock, defs::IMMDATA::LOCKS);
     }
-
 }
 
-void Node::read(defs::GlobalAddress *gaddr, void *data) {
+void *Node::read(defs::GlobalAddress *gaddr) {
     if (isLocal(gaddr)) {
-
+        sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES::SHARED);
+        auto data = reinterpret_cast<void*>(gaddr->ptr);
+        sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES::UNSHARED);
+        return data;
+    } else {
+        auto l = getLock(gaddr->id);
+        if (l.state != defs::CACHE_DIRECTORY_STATES::DIRTY) {
+            auto result = sendAddress(gaddr, defs::IMMDATA::READ);
+            return result;
+        } else {
+            return nullptr;
+        }
     }
 }
 
-defs::CACHE_DIRECTORY_STATES Node::getLock(uint16_t id){
-    auto state = locks.find(id);
-    return state->second;
-
+defs::Lock Node::getLock(uint16_t lockId) {
+    if (id == defs::homenode) {
+        auto state = locks.find(lockId);
+        auto result = new defs::Lock{lockId, state->second};
+        return *result;
+    } else {
+        auto result = getLockFromRemote(lockId, defs::IMMDATA::GETLOCK);
+        return *result;
+    }
 }
 
 defs::GlobalAddress *Node::write(defs::SendData *data) {
-    if (isLocal(data->ga)) {
-        sendLockToHomeNode(defs::DIRTY);
-        if (data->ga->size == data->size) {
-            data->ga->ptr = data->data;
+    if (isLocal(&data->ga)) {
+        sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES::DIRTY);
+        if (data->ga.size == data->size) {
+            data->ga.ptr = data->data;
         } else {
-            data->ga->ptr = static_cast<uint64_t *>(realloc(data->ga->ptr, data->size));
-            data->ga->ptr = data->data;
+            data->ga.ptr = *static_cast<uint64_t *>(realloc(reinterpret_cast<void *>(data->ga.ptr), data->size));
+            data->ga.ptr = data->data;
         }
-        sendLockToHomeNode(defs::UNSHARED);
-        return data->ga;
+        sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES::UNSHARED);
+        return &data->ga;
     } else {
-        auto l = getLock(data->ga->id);
-        if (l==defs::UNSHARED) {
-            auto immData = 4;
-            auto result = sendData(data, immData);
+        auto l = getLock(data->ga.id);
+        if (l.state == defs::CACHE_DIRECTORY_STATES::UNSHARED) {
+            sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES::DIRTY);
+            auto result = sendData(data, defs::IMMDATA::WRITE);
             return result;
         } else {
             return nullptr;

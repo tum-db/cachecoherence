@@ -17,16 +17,18 @@ int main() {
     } else if (servOcli == 1) {
         node.setID(2);
         node.connectClientSocket();
-        auto size = new size_t(20);
-        auto test = node.sendAddress(size, *size, 1);
-        auto res = getNodeId(test);
-        std::cout << res << std::endl;
-        std::cout << node.getID() << std::endl;
-        auto gaddr = new defs::GlobalAddress{*size, new uint64_t(3), 2
-        };
-        auto insert = new uint64_t(5);
-        auto data = new defs::SendData{sizeof(uint64_t), insert, gaddr};
+        uint64_t d = 26121994;
+        size_t size = sizeof(d);
+        std::cout << "Trying to Malloc" << std::endl;
+        auto test = node.sendAddress(&size, defs::IMMDATA::MALLOC);
+        std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
+        auto data = new defs::SendData{sizeof(uint64_t), d, *test};
+        std::cout << "Trying to Write" << std::endl;
         node.write(data);
+        std::cout << "Done. Trying to Read Written Data" << std::endl;
+        auto result = node.read(test);
+        auto number = reinterpret_cast<uint64_t *>(result);
+        std::cout << "Done. Result: "<<*number << std::endl;
         node.Free(test);
         node.closeClientSocket();
     } else {

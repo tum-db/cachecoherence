@@ -23,14 +23,20 @@ private:
 
     void sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state);
 
-    defs::CACHE_DIRECTORY_STATES getLock(uint16_t id);
+    defs::Lock getLock(uint16_t id);
 
     void handleReceivedLocks(void *recvbuf);
+
+    void handleGetLocks(void *recvbuf, ibv::memoryregion::RemoteAddress
+    remoteAddr, rdma::CompletionQueuePair *cq);
 
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
 
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                    rdma::CompletionQueuePair *cq);
+
+    void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair *cq);
 
     void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
@@ -43,20 +49,18 @@ public:
     explicit Node();
 
     void connectClientSocket();
+
     void closeClientSocket();
 
-    defs::GlobalAddress *
-    sendAddress(void *data, size_t size, uint32_t immData);
+    defs::GlobalAddress *sendAddress(void *data, defs::IMMDATA immData);
 
-    defs::GlobalAddress *sendData(defs::SendData *data, uint32_t immData);
+    defs::GlobalAddress *sendData(defs::SendData *data, defs::IMMDATA immData);
 
-    void sendLock(defs::Lock *lock, uint32_t immData);
-
+    void sendLock(defs::Lock *lock, defs::IMMDATA immData);
 
     void connectAndReceive();
 
     void receive(l5::util::Socket *acced);
-
 
     defs::GlobalAddress *Malloc(size_t *size);
 
@@ -64,14 +68,17 @@ public:
 
     defs::GlobalAddress *write(defs::SendData *data);
 
-    void read(defs::GlobalAddress *gaddr, void *data);
+    void *read(defs::GlobalAddress *gaddr);
 
     bool isLocal(defs::GlobalAddress *gaddr);
 
     inline uint16_t getID() { return id; }
 
     inline void setID(uint16_t newID) { id = newID; }
-};
+
+    defs::Lock *getLockFromRemote(uint16_t nodeId, defs::IMMDATA immData);
+
+    };
 
 
 #endif //MEDMM_NODE_H
