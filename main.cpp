@@ -20,15 +20,15 @@ int main() {
         uint64_t d = 26121994;
         size_t size = sizeof(d);
         std::cout << "Trying to Malloc" << std::endl;
-        auto test = node.sendAddress(&size, defs::IMMDATA::MALLOC);
+        auto recv = node.sendAddress(defs::GlobalAddress{size, 0,0}, defs::IMMDATA::MALLOC);
+        auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
         std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
         auto data = new defs::SendData{sizeof(uint64_t), d, *test};
         std::cout << "Trying to Write" << std::endl;
         node.write(data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = node.read(test);
-        auto number = reinterpret_cast<uint64_t *>(result);
-        std::cout << "Done. Result: "<<*number << std::endl;
+        std::cout << "Done. Result: "<<result << std::endl;
         node.Free(test);
         node.closeClientSocket();
     } else {

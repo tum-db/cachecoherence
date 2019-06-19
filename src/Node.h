@@ -21,7 +21,7 @@ private:
     std::map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
     l5::util::Socket socket;
 
-    void sendLockToHomeNode(defs::CACHE_DIRECTORY_STATES state);
+    void sendLockToHomeNode(uint16_t id, defs::CACHE_DIRECTORY_STATES state);
 
     defs::Lock getLock(uint16_t id);
 
@@ -52,11 +52,11 @@ public:
 
     void closeClientSocket();
 
-    defs::GlobalAddress *sendAddress(void *data, defs::IMMDATA immData);
+    void *sendAddress(defs::GlobalAddress data, defs::IMMDATA immData);
 
-    defs::GlobalAddress *sendData(defs::SendData *data, defs::IMMDATA immData);
+    defs::GlobalAddress *sendData(defs::SendData data, defs::IMMDATA immData);
 
-    void sendLock(defs::Lock *lock, defs::IMMDATA immData);
+    void sendLock(defs::Lock lock, defs::IMMDATA immData);
 
     void connectAndReceive();
 
@@ -68,7 +68,7 @@ public:
 
     defs::GlobalAddress *write(defs::SendData *data);
 
-    void *read(defs::GlobalAddress *gaddr);
+    uint64_t read(defs::GlobalAddress *gaddr);
 
     bool isLocal(defs::GlobalAddress *gaddr);
 
@@ -78,7 +78,7 @@ public:
 
     defs::Lock *getLockFromRemote(uint16_t nodeId, defs::IMMDATA immData);
 
-    };
+};
 
 
 #endif //MEDMM_NODE_H

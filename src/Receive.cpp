@@ -82,8 +82,8 @@ void Node::connectAndReceive() {
 
 void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair *cq) {
-    auto size = reinterpret_cast<size_t *>(recvbuf);
-    auto newgaddr = Malloc(size);
+    auto gaddr = reinterpret_cast<defs::GlobalAddress *>(recvbuf);
+    auto newgaddr = Malloc(&gaddr->size);
     auto sendmr = network.registerMr(newgaddr, sizeof(defs::GlobalAddress), {});
     std::cout << newgaddr->size << ", " << newgaddr->id << ", " << newgaddr->ptr
               << std::endl;
@@ -114,7 +114,8 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
                       rdma::CompletionQueuePair *cq) {
     auto gaddr = reinterpret_cast<defs::GlobalAddress *>(recvbuf);
     auto data = read(gaddr);
-    auto sendmr = network.registerMr(data, sizeof(defs::SendData), {});
+    std::cout << "datasize: " << sizeof(data) << std::endl;
+    auto sendmr = network.registerMr(&data, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
