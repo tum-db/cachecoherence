@@ -46,8 +46,7 @@ namespace defs {
         FREE = 3,
         WRITE = 4,
         LOCKS = 5,
-        RESET = 6,
-        GETLOCK = 7
+        RESET = 6
     };
 
     struct __attribute__ ((packed)) Lock {

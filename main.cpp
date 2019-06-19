@@ -28,8 +28,13 @@ int main() {
         node.write(data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = node.read(test);
-        std::cout << "Done. Result: "<<result << std::endl;
+        std::cout << "Done. Result: "<<result << ", and now changing to 1337"<<std::endl;
+        auto newdata = new defs::SendData{sizeof(uint64_t), 1337, *test};
+        node.write(newdata);
+        auto result2 = node.read(test);
+        std::cout << "Done. Result: "<<result2 << std::endl;
         node.Free(test);
+        std::cout << "Done freeing. " << std::endl;
         node.closeClientSocket();
     } else {
         std::cout << "This was no valid Number!" << std::endl;

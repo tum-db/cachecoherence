@@ -31,70 +31,70 @@ defs::GlobalAddress *Node::Free(defs::GlobalAddress *gaddr) {
     } else {
         std::cout << "sending address to free" << std::endl;
         auto res = sendAddress(*gaddr, defs::IMMDATA::FREE);
-        auto add = reinterpret_cast<defs::GlobalAddress*>(res);
+        auto add = reinterpret_cast<defs::GlobalAddress *>(res);
         std::cout << "freed, id: " << add->id << std::endl;
         return add;
     }
 }
 
 
-void Node::sendLockToHomeNode(uint16_t lockId, defs::CACHE_DIRECTORY_STATES state) {
-    if (id == defs::homenode) {
-        auto existing = locks.find(lockId);
-        if (existing != locks.end()) {
-            existing->second = state;
-        } else {
-            locks.insert(std::pair<uint16_t, defs::CACHE_DIRECTORY_STATES>(lockId, state));
-        }
-    } else {
-        sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS);
-    }
-}
-
 uint64_t Node::read(defs::GlobalAddress *gaddr) {
     if (isLocal(gaddr)) {
-        sendLockToHomeNode(gaddr->id, defs::CACHE_DIRECTORY_STATES::SHARED);
-        auto data = reinterpret_cast<uint64_t *>(gaddr->ptr);
-        sendLockToHomeNode(gaddr->id, defs::CACHE_DIRECTORY_STATES::UNSHARED);
-        return *data;
-    } else {
-        auto l = getLock(gaddr->id);
-        if (l.state != defs::CACHE_DIRECTORY_STATES::DIRTY) {
-            auto result = sendAddress(*gaddr, defs::IMMDATA::READ);
-            return *reinterpret_cast<uint64_t *>(result);
+        if (setLock(gaddr->id, defs::CACHE_DIRECTORY_STATES::SHARED)) {
+            auto data = reinterpret_cast<uint64_t *>(gaddr->ptr);
+            setLock(gaddr->id, defs::CACHE_DIRECTORY_STATES::UNSHARED);
+            return *data;
         } else {
             return 0;
         }
+    } else {
+        auto result = sendAddress(*gaddr, defs::IMMDATA::READ);
+        return *reinterpret_cast<uint64_t *>(result);
+
     }
 }
 
-defs::Lock Node::getLock(uint16_t lockId) {
+
+bool Node::setLock(uint16_t lockId, defs::CACHE_DIRECTORY_STATES state) {
     if (id == defs::homenode) {
-        auto state = locks.find(lockId);
-        auto result = new defs::Lock{lockId, state->second};
-        return *result;
+        auto existing = locks.find(lockId);
+        if (existing != locks.end()) {
+            if (state == defs::CACHE_DIRECTORY_STATES::UNSHARED) {
+                existing->second = state;
+                return true;
+            } else if (state == defs::CACHE_DIRECTORY_STATES::DIRTY &&
+                       existing->second == defs::CACHE_DIRECTORY_STATES::UNSHARED) {
+                existing->second = state;
+                return true;
+            } else if (state == defs::CACHE_DIRECTORY_STATES::SHARED &&
+                       existing->second != defs::CACHE_DIRECTORY_STATES::DIRTY) {
+                existing->second = state;
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            locks.insert(std::pair<uint16_t, defs::CACHE_DIRECTORY_STATES>(lockId, state));
+            return true;
+        }
+
     } else {
-        auto result = getLockFromRemote(lockId, defs::IMMDATA::GETLOCK);
-        return *result;
+        return sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS);
     }
 }
 
 defs::GlobalAddress *Node::write(defs::SendData *data) {
     if (isLocal(&data->ga)) {
-        sendLockToHomeNode(data->ga.id, defs::CACHE_DIRECTORY_STATES::DIRTY);
+        if (setLock(data->ga.id, defs::CACHE_DIRECTORY_STATES::DIRTY)) {
             auto ptr = reinterpret_cast<uint64_t *>(data->ga.ptr);
-            std::memcpy(ptr,&data->data, data->size);
-        sendLockToHomeNode(data->ga.id, defs::CACHE_DIRECTORY_STATES::UNSHARED);
-        return &data->ga;
+            std::memcpy(ptr, &data->data, data->size);
+            setLock(data->ga.id, defs::CACHE_DIRECTORY_STATES::UNSHARED);
+            return &data->ga;
+        } else { return nullptr; }
     } else {
-        auto l = getLock(data->ga.id);
-        if (l.state == defs::CACHE_DIRECTORY_STATES::UNSHARED) {
-            sendLockToHomeNode(data->ga.id, defs::CACHE_DIRECTORY_STATES::DIRTY);
-            auto result = sendData(*data, defs::IMMDATA::WRITE);
-            return result;
-        } else {
-            return nullptr;
-        }
+        auto result = sendData(*data, defs::IMMDATA::WRITE);
+        return result;
+
     }
 }
 

@@ -54,16 +54,12 @@ void Node::receive(l5::util::Socket *acced) {
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
         {
-            handleReceivedLocks(recvbuf);
+            handleLocks(recvbuf, remoteMr, &cq);
             break;
         }
         case defs::IMMDATA::RESET: {
             rcqp.setToResetState();
             *acced = connectServerSocket();
-            break;
-        }
-        case defs::IMMDATA::GETLOCK: {
-            handleGetLocks(recvbuf, remoteMr, &cq);
             break;
         }
         default: {
@@ -102,12 +98,14 @@ remoteAddr, rdma::CompletionQueuePair *cq) {
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
-void Node::handleReceivedLocks(void *recvbuf) {
-    auto *lock = reinterpret_cast<defs::Lock *>(recvbuf);
-    uint16_t lockId = lock->id;
-    auto state = lock->state;
-    std::cout << "This Lock was sent: " << lockId << ", " << state << std::endl;
-    locks.insert(std::make_pair(lockId, state));
+void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                               rdma::CompletionQueuePair *cq) {
+    auto l = reinterpret_cast<defs::Lock *>(recvbuf);
+    auto lock = setLock(l->id, l->state);
+    auto sendmr = network.registerMr(&lock, sizeof(defs::Lock), {});
+    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
+    rcqp.postWorkRequest(write);
+    cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
 void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
@@ -131,16 +129,6 @@ void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     std::cout << id << std::endl;
     auto result = write(data);
     auto sendmr = network.registerMr(result, sizeof(defs::GlobalAddress), {});
-    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
-    rcqp.postWorkRequest(write);
-    cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-}
-
-void Node::handleGetLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                          rdma::CompletionQueuePair *cq) {
-    auto nodeId = reinterpret_cast<uint16_t *>(recvbuf);
-    auto lock = getLock(*nodeId);
-    auto sendmr = network.registerMr(&lock, sizeof(defs::Lock), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);

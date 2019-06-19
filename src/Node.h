@@ -21,16 +21,11 @@ private:
     std::map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
     l5::util::Socket socket;
 
-    void sendLockToHomeNode(uint16_t id, defs::CACHE_DIRECTORY_STATES state);
 
-    defs::Lock getLock(uint16_t id);
+    void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                             rdma::CompletionQueuePair *cq);
 
-    void handleReceivedLocks(void *recvbuf);
-
-    void handleGetLocks(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair *cq);
-
-    void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+   void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
 
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
@@ -44,6 +39,11 @@ private:
 
     l5::util::Socket connectServerSocket();
 
+    bool setLock(uint16_t lockId, defs::CACHE_DIRECTORY_STATES state);
+
+    bool sendLock(defs::Lock lock, defs::IMMDATA immData);
+
+
 public:
 
     explicit Node();
@@ -56,7 +56,6 @@ public:
 
     defs::GlobalAddress *sendData(defs::SendData data, defs::IMMDATA immData);
 
-    void sendLock(defs::Lock lock, defs::IMMDATA immData);
 
     void connectAndReceive();
 
@@ -75,8 +74,6 @@ public:
     inline uint16_t getID() { return id; }
 
     inline void setID(uint16_t newID) { id = newID; }
-
-    defs::Lock *getLockFromRemote(uint16_t nodeId, defs::IMMDATA immData);
 
 };
 
