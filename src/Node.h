@@ -10,7 +10,7 @@
 #include "../rdma/CompletionQueuePair.hpp"
 #include "../util/defs.h"
 #include <cstddef>
-#include <map>
+#include <unordered_map>
 
 
 class Node {
@@ -18,7 +18,7 @@ private:
     rdma::Network network;
     uint16_t id;
     rdma::RcQueuePair rcqp;
-    std::map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
+    std::unordered_map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
     l5::util::Socket socket;
 
 
@@ -54,22 +54,22 @@ public:
 
     void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData);
 
-    defs::GlobalAddress *sendData(defs::SendingData data, defs::IMMDATA immData);
+    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData);
 
 
     void connectAndReceive();
 
     void receive(l5::util::Socket *acced);
 
-    defs::GlobalAddress *Malloc(size_t *size);
+    defs::GlobalAddress Malloc(size_t *size);
 
-    defs::GlobalAddress *Free(defs::GlobalAddress *gaddr);
+    defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 
-    defs::GlobalAddress *write(defs::SendData *data);
+    defs::GlobalAddress write(defs::SendData *data);
 
-    uint64_t read(defs::GlobalAddress *gaddr);
+    uint64_t read(defs::GlobalAddress gaddr);
 
-    bool isLocal(defs::GlobalAddress *gaddr);
+    bool isLocal(defs::GlobalAddress gaddr);
 
     inline uint16_t getID() { return id; }
 

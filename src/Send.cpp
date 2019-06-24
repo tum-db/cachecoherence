@@ -17,8 +17,8 @@ void Node::connectClientSocket() {
 }
 
 void Node::closeClientSocket() {
-    auto fakeLock = new defs::Lock{id, defs::UNSHARED};
-    sendLock(*fakeLock, defs::RESET);
+    auto fakeLock = defs::Lock{id, defs::UNSHARED};
+    sendLock(fakeLock, defs::RESET);
     socket.close();
 }
 
@@ -46,7 +46,7 @@ void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
 }
 
 
-defs::GlobalAddress *Node::sendData(defs::SendingData data, defs::IMMDATA immData) {
+defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData) {
     std::cout << "sendable: " << data.data << std::endl;
 
     auto &cq = network.getSharedCompletionQueue();
@@ -66,7 +66,7 @@ defs::GlobalAddress *Node::sendData(defs::SendingData data, defs::IMMDATA immDat
     rcqp.postRecvRequest(recv);
     cq.pollRecvWorkCompletionBlocking();
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
-    auto gaddr = new defs::GlobalAddress(*sga);
+    auto gaddr = defs::GlobalAddress(*sga);
     return gaddr;
 }
 

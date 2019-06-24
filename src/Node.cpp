@@ -10,7 +10,7 @@ Node::Node() : network(), id(), rcqp(network, network.getSharedCompletionQueue()
     socket = l5::util::Socket::create();
 }
 
-bool Node::isLocal(defs::GlobalAddress *gaddr) {
-    return gaddr->getNodeId() == id;
+bool Node::isLocal(defs::GlobalAddress gaddr) {
+    return gaddr.getNodeId() == id;
 }
 
