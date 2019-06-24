@@ -11,6 +11,6 @@ Node::Node() : network(), id(), rcqp(network, network.getSharedCompletionQueue()
 }
 
 bool Node::isLocal(defs::GlobalAddress *gaddr) {
-    return getNodeId(gaddr) == id;
+    return gaddr->getNodeId() == id;
 }
 

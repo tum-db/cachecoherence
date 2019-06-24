@@ -52,9 +52,9 @@ public:
 
     void closeClientSocket();
 
-    void *sendAddress(defs::GlobalAddress data, defs::IMMDATA immData);
+    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData);
 
-    defs::GlobalAddress *sendData(defs::SendData data, defs::IMMDATA immData);
+    defs::GlobalAddress *sendData(defs::SendingData data, defs::IMMDATA immData);
 
 
     void connectAndReceive();

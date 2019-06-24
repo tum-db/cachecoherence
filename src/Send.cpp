@@ -23,9 +23,9 @@ void Node::closeClientSocket() {
 }
 
 
-void *Node::sendAddress(defs::GlobalAddress data, defs::IMMDATA immData) {
+void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
-    auto size = sizeof(defs::GlobalAddress) + data.size;
+    auto size = sizeof(defs::SendGlobalAddr) + data.size;
     auto sendmr = network.registerMr(&data, sizeof(data) + data.size, {});
     auto recvbuf = malloc(size);
     auto recvmr = network.registerMr(recvbuf, size,
@@ -46,11 +46,13 @@ void *Node::sendAddress(defs::GlobalAddress data, defs::IMMDATA immData) {
 }
 
 
-defs::GlobalAddress *Node::sendData(defs::SendData data, defs::IMMDATA immData) {
+defs::GlobalAddress *Node::sendData(defs::SendingData data, defs::IMMDATA immData) {
+    std::cout << "sendable: " << data.data << std::endl;
+
     auto &cq = network.getSharedCompletionQueue();
-    auto sendmr = network.registerMr(&data, sizeof(defs::SendData), {});
-    auto recvbuf = malloc(sizeof(defs::GlobalAddress));
-    auto recvmr = network.registerMr(recvbuf, sizeof(defs::GlobalAddress),
+    auto sendmr = network.registerMr(&data, sizeof(defs::SendingData), {});
+    auto recvbuf = malloc(sizeof(defs::SendGlobalAddr));
+    auto recvmr = network.registerMr(recvbuf, sizeof(defs::SendGlobalAddr),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
@@ -63,7 +65,9 @@ defs::GlobalAddress *Node::sendData(defs::SendData data, defs::IMMDATA immData) 
     recv.setSge(nullptr, 0);
     rcqp.postRecvRequest(recv);
     cq.pollRecvWorkCompletionBlocking();
-    return reinterpret_cast<defs::GlobalAddress *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto gaddr = new defs::GlobalAddress(*sga);
+    return gaddr;
 }
 
 bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
@@ -87,4 +91,5 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
         auto result = reinterpret_cast<bool *>(recvbuf);
         return *result;
     }
+    return false;
 }
