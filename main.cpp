@@ -17,7 +17,7 @@ int main() {
     } else if (servOcli == 1) {
         node.setID(2);
         node.connectClientSocket();
-        uint64_t d = 26121994;
+        uint64_t d = reinterpret_cast<uint64_t >("hallo"); // need to cast data to uint64_t
         size_t size = sizeof(d);
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0);
@@ -29,7 +29,7 @@ int main() {
         node.write(data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = node.read(test);
-        std::cout << "Done. Result: "<< result << ", and now changing to 1337"<<std::endl;
+        std::cout << "Done. Result: "<< reinterpret_cast<char *>(result) << ", and now changing to 1337"<<std::endl;
         auto newint = new uint64_t(1337);
         auto newdata = new defs::SendData{sizeof(uint64_t), *newint, *test};
         node.write(newdata);
