@@ -9,6 +9,7 @@
 #include "../util/RDMANetworking.h"
 #include "../rdma/CompletionQueuePair.hpp"
 #include "../util/defs.h"
+#include "Cache.h"
 #include <cstddef>
 #include <unordered_map>
 
@@ -18,8 +19,9 @@ private:
     rdma::Network network;
     uint16_t id;
     rdma::RcQueuePair rcqp;
-    std::unordered_map<uint16_t, defs::CACHE_DIRECTORY_STATES> locks;
+    std::unordered_map<uint16_t, defs::LOCK_STATES> locks;
     l5::util::Socket socket;
+    Cache cache;
 
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
@@ -39,7 +41,7 @@ private:
 
     l5::util::Socket connectServerSocket();
 
-    bool setLock(uint16_t lockId, defs::CACHE_DIRECTORY_STATES state);
+    bool setLock(uint16_t lockId, defs::LOCK_STATES state);
 
     bool sendLock(defs::Lock lock, defs::IMMDATA immData);
 

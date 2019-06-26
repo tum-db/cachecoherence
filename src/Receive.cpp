@@ -115,6 +115,7 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
     auto data = read(gaddr);
+    cache.state = CACHE_DIRECTORY_STATE::SHARED;
     std::cout << "datasize: " << sizeof(data) << ", data: " << data << std::endl;
     auto sendmr = network.registerMr(&data, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
@@ -135,6 +136,7 @@ void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
               << data.size << std::endl;
     std::cout << id << std::endl;
     auto result = write(&data).sendable();
+    cache.state = CACHE_DIRECTORY_STATE::DIRTY;
     auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);

@@ -88,7 +88,7 @@ namespace defs {
         }
     };
 
-    enum CACHE_DIRECTORY_STATES {
+    enum LOCK_STATES {
         UNSHARED = 0,
         SHARED = 1,
         DIRTY = 2
@@ -108,7 +108,7 @@ namespace defs {
 
     struct __attribute__ ((packed)) Lock {
         uint16_t id;
-        CACHE_DIRECTORY_STATES state;
+        LOCK_STATES state;
     };
 
 
