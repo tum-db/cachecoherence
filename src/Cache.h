@@ -10,16 +10,12 @@
 #include <cstdint>
 #include <chrono>
 #include "../util/defs.h"
-#include <unordered_map>
+#include <map>
 
-enum CACHE_DIRECTORY_STATE {
-    UNSHARED = 0,
-    SHARED = 1,
-    DIRTY = 2
-};
 
 
 struct CacheItem {
+    defs::GlobalAddress globalAddress;
     uint64_t data;
     std::chrono::time_point<std::chrono::system_clock> created;
     std::chrono::time_point<std::chrono::system_clock> lastused;
@@ -29,7 +25,7 @@ class Cache {
 private:
     size_t maxsize; //is set 512 in constructor
     size_t availablesize;
-    std::unordered_map<defs::GlobalAddress, CacheItem> items;
+    std::map<uint64_t, CacheItem> items;
 
     void removeOldestItem();
 public:
@@ -37,9 +33,9 @@ public:
 
     void addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem);
 
-    CacheItem getCacheItem(defs::GlobalAddress ga);
+    CacheItem *getCacheItem(defs::GlobalAddress ga);
 
-    CACHE_DIRECTORY_STATE state;
+    defs::CACHE_DIRECTORY_STATE state;
 };
 
 

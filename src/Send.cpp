@@ -17,7 +17,7 @@ void Node::connectClientSocket() {
 }
 
 void Node::closeClientSocket() {
-    auto fakeLock = defs::Lock{id, defs::UNSHARED};
+    auto fakeLock = defs::Lock{id, defs::LOCK_STATES::UNLOCKED};
     sendLock(fakeLock, defs::RESET);
     socket.close();
 }

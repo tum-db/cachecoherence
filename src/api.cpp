@@ -42,44 +42,53 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
 }
 
 uint64_t Node::read(defs::GlobalAddress gaddr) {
+    if (setLock(gaddr.id, defs::LOCK_STATES::SHAREDLOCK)) {
+        auto result = performRead(gaddr);
+        setLock(gaddr.id, defs::LOCK_STATES::UNLOCKED);
+        std::cout << "now result: " << result<< std::endl;
+        return result;
+    }
+    else {
+        return 0;
+    }
+}
+
+uint64_t Node::performRead(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
-        if (setLock(gaddr.id, defs::LOCK_STATES::SHARED)) {
             auto data = reinterpret_cast<uint64_t *>(gaddr.ptr);
             std::cout << gaddr.ptr << ", " << *data << std::endl;
-            setLock(gaddr.id, defs::LOCK_STATES::UNSHARED);
             return *data;
-        } else {
-            return 0;
-        }
     } else {
         auto cacheItem = cache.getCacheItem(gaddr);
-        if (!cacheItem.lastused) {
+        if (cacheItem == nullptr) {
             auto data = sendAddress(gaddr.sendable(), defs::IMMDATA::READ);
             auto result = *reinterpret_cast<uint64_t *>(data);
-            cacheItem = CacheItem{result, std::chrono::system_clock::now(),
+            auto newCacheItem = CacheItem{gaddr, result, std::chrono::system_clock::now(),
                                   std::chrono::system_clock::now()};
-            cache.addCacheItem(gaddr, cacheItem);
+            cache.addCacheItem(gaddr, newCacheItem);
             return result;
         } else {
-            return cacheItem.data;
+
+            return cacheItem->data;
         }
     }
 }
 
 
+
 bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
-    if (id == defs::homenode) {
+    if (id == defs::locknode) {
         auto existing = locks.find(lockId);
         if (existing != locks.end()) {
-            if (state == defs::LOCK_STATES::UNSHARED) {
+            if (state == defs::LOCK_STATES::UNLOCKED) {
                 existing->second = state;
                 return true;
-            } else if (state == defs::LOCK_STATES::DIRTY &&
-                       existing->second == defs::LOCK_STATES::UNSHARED) {
+            } else if (state == defs::LOCK_STATES::EXCLUSIVE &&
+                       existing->second == defs::LOCK_STATES::UNLOCKED) {
                 existing->second = state;
                 return true;
-            } else if (state == defs::LOCK_STATES::SHARED &&
-                       existing->second != defs::LOCK_STATES::DIRTY) {
+            } else if (state == defs::LOCK_STATES::SHAREDLOCK &&
+                       existing->second != defs::LOCK_STATES::EXCLUSIVE) {
                 existing->second = state;
                 return true;
             } else {
@@ -95,17 +104,28 @@ bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
     }
 }
 
-defs::GlobalAddress Node::write(defs::SendData *data) {
-    if (isLocal(data->ga)) {
-        if (setLock(data->ga.id, defs::LOCK_STATES::DIRTY)) {
-            std::memcpy(data->ga.ptr, &data->data, data->size);
-            setLock(data->ga.id, defs::LOCK_STATES::UNSHARED);
-            return data->ga;
-        } else { return defs::GlobalAddress(); }
-    } else {
-        auto result = sendData(data->sendable(), defs::IMMDATA::WRITE);
+defs::GlobalAddress Node::write(defs::Data *data) {
+    if (setLock(data->ga.id, defs::LOCK_STATES::EXCLUSIVE)){
+        auto result = performWrite(data);
+        setLock(data->ga.id, defs::LOCK_STATES::UNLOCKED);
         return result;
+    } else {
+        return defs::GlobalAddress{};
+    }
+}
 
+defs::GlobalAddress Node::performWrite(defs::Data *data) {
+    if (isLocal(data->ga)) {
+        if (cache.state == defs::CACHE_DIRECTORY_STATE::UNSHARED) {
+                std::memcpy(data->ga.ptr, &data->data, data->size);
+                setLock(data->ga.id, defs::LOCK_STATES::UNLOCKED);
+                return data->ga;
+        } else {
+
+        }
+    } else {
+            auto result = sendData(data->sendable(), defs::IMMDATA::WRITE);
+            return result;
     }
 }
 

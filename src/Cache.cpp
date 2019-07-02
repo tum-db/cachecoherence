@@ -3,19 +3,20 @@
 //
 
 #include "Cache.h"
+#include "../util/GlobalAddressHash.h"
 #include <iostream>
 
 
-Cache::Cache() : maxsize(), availablesize(), items() {
+Cache::Cache() : maxsize(), availablesize(), items(), state() {
     maxsize = 512;
     availablesize = 512;
-    items = new std::unordered_map<defs::GlobalAddress, CacheItem>();
+    state = defs::CACHE_DIRECTORY_STATE::UNSHARED;
 }
 
 void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
     if (gaddr.size <= maxsize){
             if (availablesize >= gaddr.size) {
-                items.insert(std::pair<defs::GlobalAddress, CacheItem>(gaddr, cacheItem));
+                items.insert(std::pair<uint64_t, CacheItem>(GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable()), cacheItem));
                 availablesize = availablesize - gaddr.size;
             }
             else {
@@ -30,27 +31,27 @@ void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
 }
 
 void Cache::removeOldestItem(){
-    std::pair<defs::GlobalAddress, CacheItem> latest;
+    std::pair<uint64_t , CacheItem> latest;
 
     for (auto& it: items) {
         if(latest.second.lastused.time_since_epoch() < it.second.lastused.time_since_epoch()){
             latest = it;
         }
         std::cout << std::chrono::system_clock::to_time_t(latest.second.lastused) << std::endl;
-        std::cout << it.second.lastused.time_since_epoch() << std::endl;
     }
-    availablesize = availablesize+latest.first.size;
+    availablesize = availablesize+latest.second.globalAddress.size;
     items.erase(latest.first);
 
 
 }
 
-CacheItem Cache::getCacheItem(defs::GlobalAddress ga){
-    auto cacheItem = items.find(ga);
-    if(cacheItem){
-        return cacheItem;
+CacheItem *Cache::getCacheItem(defs::GlobalAddress ga){
+    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable()));
+    if(cacheItem != items.end()){
+        cacheItem->second.lastused = std::chrono::system_clock::now();
+        return &cacheItem->second;
     }
     else {
-        return cacheItem{};
+        return nullptr;
     }
 }

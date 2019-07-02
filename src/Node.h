@@ -45,8 +45,12 @@ private:
 
     bool sendLock(defs::Lock lock, defs::IMMDATA immData);
 
+    defs::GlobalAddress performWrite(defs::Data *data);
+    uint64_t performRead(defs::GlobalAddress gaddr);
 
-public:
+
+
+        public:
 
     explicit Node();
 
@@ -67,7 +71,7 @@ public:
 
     defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 
-    defs::GlobalAddress write(defs::SendData *data);
+    defs::GlobalAddress write(defs::Data *data);
 
     uint64_t read(defs::GlobalAddress gaddr);
 

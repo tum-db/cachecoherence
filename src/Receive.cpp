@@ -57,7 +57,9 @@ void Node::receive(l5::util::Socket *acced) {
             handleLocks(recvbuf, remoteMr, &cq);
             break;
         }
-        case defs::IMMDATA::RESET: {
+        case defs::IMMDATA::RESET: //immdata = 6, reset state
+            {
+                std::cout << "RESETING NODES!!!!" << std::endl;
             rcqp.setToResetState();
             *acced = connectServerSocket();
             break;
@@ -104,7 +106,7 @@ void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
                                rdma::CompletionQueuePair *cq) {
     auto l = reinterpret_cast<defs::Lock *>(recvbuf);
     auto lock = setLock(l->id, l->state);
-    auto sendmr = network.registerMr(&lock, sizeof(defs::Lock), {});
+    auto sendmr = network.registerMr(&lock, sizeof(bool), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -114,8 +116,8 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
                       rdma::CompletionQueuePair *cq) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
-    auto data = read(gaddr);
-    cache.state = CACHE_DIRECTORY_STATE::SHARED;
+    auto data = performRead(gaddr);
+    cache.state = defs::CACHE_DIRECTORY_STATE::SHARED;
     std::cout << "datasize: " << sizeof(data) << ", data: " << data << std::endl;
     auto sendmr = network.registerMr(&data, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
@@ -130,13 +132,13 @@ void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     std::cout << "Write, SendData: data: " << senddata->data << ", ga-ID: " << senddata->sga.id
               << ", ga-size:" << senddata->sga.size << ", ptr: " << senddata->sga.ptr << ", size: "
               << senddata->size << std::endl;
-    auto data = defs::SendData(*senddata);
+    auto data = defs::Data(*senddata);
     std::cout << "Write, SendData: data: " << data.data << ", ga-ID: " << data.ga.id
               << ", ga-size:" << data.ga.size << ", ptr: " << data.ga.ptr << ", size: "
               << data.size << std::endl;
     std::cout << id << std::endl;
-    auto result = write(&data).sendable();
-    cache.state = CACHE_DIRECTORY_STATE::DIRTY;
+    auto result = performWrite(&data).sendable();
+    cache.state = defs::CACHE_DIRECTORY_STATE::DIRTY;
     auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);

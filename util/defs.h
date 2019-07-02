@@ -2,17 +2,26 @@
 // Created by Magdalena Pröbstl on 2019-05-07.
 //
 #include <cstddef>
+#include "../include/libibverbscpp/libibverbscpp.h"
 
 #ifndef MEDMM_DEFS_H
 #define MEDMM_DEFS_H
+
 namespace defs {
 
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    const uint16_t homenode = 1;
+    const uint16_t locknode = 1;
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
+
+    enum CACHE_DIRECTORY_STATE {
+        UNSHARED = 0,
+        SHARED = 1,
+        DIRTY = 2
+    };
+
 
 
     struct __attribute__ ((packed)) SendGlobalAddr {
@@ -22,9 +31,9 @@ namespace defs {
     };
 
     struct __attribute__ ((packed)) GlobalAddress {
-        size_t size{};
-        void *ptr{};
-        uint16_t id{};
+        size_t size;
+        void *ptr;
+        uint16_t id;
 
         SendGlobalAddr sendable(){
             SendGlobalAddr sga{};
@@ -33,7 +42,7 @@ namespace defs {
             sga.id = id;
             return sga;
         };
-        GlobalAddress(){};
+        GlobalAddress()= default;
         GlobalAddress(size_t s, void* p, uint16_t i){
             size = s;
             ptr = p;
@@ -62,10 +71,11 @@ namespace defs {
 
 
 
-    struct __attribute__ ((packed)) SendData{
+    struct __attribute__ ((packed)) Data{
         size_t size;
         uint64_t data;
         GlobalAddress ga;
+
         SendingData sendable() {
             SendingData sd{};
             sd.sga = ga.sendable();
@@ -73,25 +83,30 @@ namespace defs {
             sd.data = data;
             return sd;
         }
-        SendData(){};
+        Data()= default;
 
-        SendData(size_t s, uint64_t d, GlobalAddress g){
+        Data(size_t s, uint64_t d, GlobalAddress g){
             size = s;
             data = d;
             ga = g;
         };
 
-        explicit SendData(SendingData sd){
+        explicit Data(SendingData sd){
             size = sd.size;
             data = sd.data;
             ga = GlobalAddress(sd.sga);
         }
     };
 
+    struct savedData {
+        uint64_t data;
+        CACHE_DIRECTORY_STATE iscached;
+    };
+
     enum LOCK_STATES {
-        UNSHARED = 0,
-        SHARED = 1,
-        DIRTY = 2
+        UNLOCKED = 0,
+        SHAREDLOCK = 1,
+        EXCLUSIVE = 2
     };
 
     enum IMMDATA {
