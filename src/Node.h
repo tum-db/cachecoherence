@@ -25,9 +25,9 @@ private:
 
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                             rdma::CompletionQueuePair *cq);
+                     rdma::CompletionQueuePair *cq);
 
-   void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair *cq);
 
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
@@ -36,7 +36,7 @@ private:
     void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair *cq);
 
-    void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
+    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq);
 
     l5::util::Socket connectServerSocket();
@@ -46,11 +46,19 @@ private:
     bool sendLock(defs::Lock lock, defs::IMMDATA immData);
 
     defs::GlobalAddress performWrite(defs::Data *data);
-    uint64_t performRead(defs::GlobalAddress gaddr);
+
+    defs::SaveData *performRead(defs::GlobalAddress gaddr);
+
+    void invalidate(defs::SendGlobalAddr gaddr, rdma::CompletionQueuePair *cq);
+
+    void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
+                            rdma::CompletionQueuePair *cq);
 
 
+    void broadcastInvalidations(std::array<uint16_t,defs::maxSharerNodes> nodes);
 
-        public:
+
+public:
 
     explicit Node();
 
@@ -65,7 +73,7 @@ private:
 
     void connectAndReceive();
 
-    void receive(l5::util::Socket *acced);
+    bool receive(l5::util::Socket *acced);
 
     defs::GlobalAddress Malloc(size_t *size);
 

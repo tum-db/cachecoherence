@@ -14,44 +14,45 @@ Cache::Cache() : maxsize(), availablesize(), items(), state() {
 }
 
 void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
-    if (gaddr.size <= maxsize){
-            if (availablesize >= gaddr.size) {
-                items.insert(std::pair<uint64_t, CacheItem>(GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable()), cacheItem));
-                availablesize = availablesize - gaddr.size;
+    if (gaddr.size <= maxsize) {
+        if (availablesize >= gaddr.size) {
+            items.insert(std::pair<uint64_t, CacheItem>(
+                    GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable()), cacheItem));
+            availablesize = availablesize - gaddr.size;
+        } else {
+            while (availablesize < gaddr.size) {
+                removeOldestItem();
             }
-            else {
-                while(availablesize < gaddr.size) {
-                    removeOldestItem();
-                }
-            }
-    }
-    else {
+        }
+    } else {
         throw;
     }
 }
 
-void Cache::removeOldestItem(){
-    std::pair<uint64_t , CacheItem> latest;
+void Cache::removeCacheItem(defs::GlobalAddress gaddr) {
+    auto iterator = GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable());
+    items.erase(iterator);
+}
 
-    for (auto& it: items) {
-        if(latest.second.lastused.time_since_epoch() < it.second.lastused.time_since_epoch()){
+void Cache::removeOldestItem() {
+    std::pair<uint64_t, CacheItem> latest;
+
+    for (auto &it: items) {
+        if (latest.second.lastused.time_since_epoch() < it.second.lastused.time_since_epoch()) {
             latest = it;
         }
         std::cout << std::chrono::system_clock::to_time_t(latest.second.lastused) << std::endl;
     }
-    availablesize = availablesize+latest.second.globalAddress.size;
+    availablesize = availablesize + latest.second.globalAddress.size;
     items.erase(latest.first);
-
-
 }
 
-CacheItem *Cache::getCacheItem(defs::GlobalAddress ga){
+CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
     auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable()));
-    if(cacheItem != items.end()){
+    if (cacheItem != items.end()) {
         cacheItem->second.lastused = std::chrono::system_clock::now();
         return &cacheItem->second;
-    }
-    else {
+    } else {
         return nullptr;
     }
 }

@@ -16,7 +16,7 @@ l5::util::Socket Node::connectServerSocket() {
     return acced;
 }
 
-void Node::receive(l5::util::Socket *acced) {
+bool Node::receive(l5::util::Socket *acced) {
     auto &cq = network.getSharedCompletionQueue();
     auto recvbuf = malloc(defs::BIGBADBUFFER_SIZE * 2);
     auto recvmr = network.registerMr(recvbuf, defs::BIGBADBUFFER_SIZE * 2,
@@ -35,37 +35,44 @@ void Node::receive(l5::util::Socket *acced) {
         case defs::IMMDATA::MALLOC:  //immdata = 1, if it comes from another server
         {
             handleAllocation(recvbuf, remoteMr, &cq);
-            break;
+            return true;
         }
         case defs::IMMDATA::READ: //immdata = 2, if it is a read
         {
             handleRead(recvbuf, remoteMr, &cq);
-            break;
+            return true;
         }
         case defs::IMMDATA::FREE://immdata = 3, it should be freed
         {
             handleFree(recvbuf, remoteMr, &cq);
-            break;
+            return true;
         }
         case defs::IMMDATA::WRITE:  //immdata = 4, write
         {
-            handleWrite(recvbuf, remoteMr, &cq);
-            break;
+            auto shouldbeinvalidated = handleWrite(recvbuf, remoteMr, &cq);
+            return shouldbeinvalidated;
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
         {
             handleLocks(recvbuf, remoteMr, &cq);
-            break;
+            return true;
         }
         case defs::IMMDATA::RESET: //immdata = 6, reset state
-            {
-                std::cout << "RESETING NODES!!!!" << std::endl;
+        {
+            std::cout << "RESETING NODES!!!!" << std::endl;
             rcqp.setToResetState();
             *acced = connectServerSocket();
-            break;
+            return true;
+        }
+        case defs::IMMDATA::INVALIDATE:
+        {
+            std::cout << "INVALIDATION completed" << std::endl;
+            rcqp.setToResetState();
+
+            return false;
         }
         default: {
-            return;
+            return true;
         }
     }
 }
@@ -73,8 +80,9 @@ void Node::receive(l5::util::Socket *acced) {
 void Node::connectAndReceive() {
     l5::util::tcp::bind(socket, defs::port);
     auto acced = connectServerSocket();
-    while (true) {
-        receive(&acced);
+    bool connected = true;
+    while (connected) {
+       connected = receive(&acced);
     }
 }
 
@@ -103,7 +111,7 @@ remoteAddr, rdma::CompletionQueuePair *cq) {
 }
 
 void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                               rdma::CompletionQueuePair *cq) {
+                       rdma::CompletionQueuePair *cq) {
     auto l = reinterpret_cast<defs::Lock *>(recvbuf);
     auto lock = setLock(l->id, l->state);
     auto sendmr = network.registerMr(&lock, sizeof(bool), {});
@@ -117,30 +125,57 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
     auto data = performRead(gaddr);
-    cache.state = defs::CACHE_DIRECTORY_STATE::SHARED;
-    std::cout << "datasize: " << sizeof(data) << ", data: " << data << std::endl;
-    auto sendmr = network.registerMr(&data, sizeof(uint64_t), {});
+    data->iscached = defs::CACHE_DIRECTORY_STATE::SHARED;
+    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
+    auto sendmr = network.registerMr(&data->data, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
 }
 
-void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                        rdma::CompletionQueuePair *cq) {
     auto senddata = reinterpret_cast<defs::SendingData *>(recvbuf);
     std::cout << "Write, SendData: data: " << senddata->data << ", ga-ID: " << senddata->sga.id
               << ", ga-size:" << senddata->sga.size << ", ptr: " << senddata->sga.ptr << ", size: "
               << senddata->size << std::endl;
     auto data = defs::Data(*senddata);
-    std::cout << "Write, SendData: data: " << data.data << ", ga-ID: " << data.ga.id
-              << ", ga-size:" << data.ga.size << ", ptr: " << data.ga.ptr << ", size: "
-              << data.size << std::endl;
     std::cout << id << std::endl;
+    if (isLocal(data.ga)) {
+        auto olddata = performRead(data.ga);
+        if (olddata->iscached != defs::CACHE_DIRECTORY_STATE::UNSHARED) {
+            startInvalidations(data, remoteAddr, cq);
+            return true;
+        }
+    } else {
+        auto result = performWrite(&data).sendable();
+        auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
+        auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
+                                              defs::IMMDATA::DEFAULT);
+        rcqp.postWorkRequest(write);
+        cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        return true;
+    }
+}
+
+void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
+                             rdma::CompletionQueuePair *cq) {
+    std::cout << "going to invalidate" << std::endl;
+    auto invalidation = data.ga.sendable();
+    auto sendmr1 = network.registerMr(&invalidation, sizeof(defs::SendGlobalAddr), {});
+    auto write1 = defs::createWriteWithImm(sendmr1->getSlice(), remoteAddr,
+                                           defs::IMMDATA::INVALIDATE);
+    rcqp.postWorkRequest(write1);
+    cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     auto result = performWrite(&data).sendable();
-    cache.state = defs::CACHE_DIRECTORY_STATE::DIRTY;
     auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
-    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
+    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
+                                          defs::IMMDATA::DEFAULT);
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+    rcqp.setToResetState();
+    socket.close();
+    connectClientSocket();
+
 }

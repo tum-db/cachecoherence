@@ -9,10 +9,12 @@
 
 namespace defs {
 
+    const int maxSharerNodes = 2;
+
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    const uint16_t locknode = 1;
+    const uint16_t locknode = 2;
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
 
@@ -98,9 +100,10 @@ namespace defs {
         }
     };
 
-    struct savedData {
+    struct __attribute__ ((packed)) SaveData {
         uint64_t data;
         CACHE_DIRECTORY_STATE iscached;
+        uint16_t sharernodes[];
     };
 
     enum LOCK_STATES {
@@ -116,7 +119,8 @@ namespace defs {
         FREE = 3,
         WRITE = 4,
         LOCKS = 5,
-        RESET = 6
+        RESET = 6,
+        INVALIDATE = 7
     };
 
 

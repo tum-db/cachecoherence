@@ -28,7 +28,9 @@ int main() {
         node.write(&data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = node.read(*test);
-        std::cout << "Done. Result: "<< reinterpret_cast<char *>(result) << ", and now changing to 1337"<<std::endl;
+        std::cout << "Done. Result: "<< reinterpret_cast<char *>(result) << ", and now reading from cache"<<std::endl;
+        auto result1 = node.read(*test);
+        std::cout << "Done. Result: "<< reinterpret_cast<char *>(result1) << ", and now changing to 1337"<<std::endl;
         auto newint = uint64_t(1337);
         auto newdata = new defs::Data{sizeof(uint64_t), newint, *test};
         node.write(newdata);

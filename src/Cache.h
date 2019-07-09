@@ -33,6 +33,8 @@ public:
 
     void addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem);
 
+    void removeCacheItem(defs::GlobalAddress gaddr);
+
     CacheItem *getCacheItem(defs::GlobalAddress ga);
 
     defs::CACHE_DIRECTORY_STATE state;

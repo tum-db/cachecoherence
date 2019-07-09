@@ -24,7 +24,6 @@ defs::GlobalAddress Node::Malloc(size_t *size) {
 
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
-    std::cout << "Freeing whoop" << std::endl;
     if (isLocal(gaddr)) {
         free(gaddr.ptr);
         gaddr.ptr = nullptr;
@@ -32,11 +31,9 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
         std::cout << "Freed..." << std::endl;
         return gaddr;
     } else {
-        std::cout << "sending address to free" << std::endl;
         auto res = sendAddress(gaddr.sendable(), defs::IMMDATA::FREE);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
         auto add = defs::GlobalAddress(*sga);
-        std::cout << "freed, id: " << add.id << std::endl;
         return add;
     }
 }
@@ -45,35 +42,31 @@ uint64_t Node::read(defs::GlobalAddress gaddr) {
     if (setLock(gaddr.id, defs::LOCK_STATES::SHAREDLOCK)) {
         auto result = performRead(gaddr);
         setLock(gaddr.id, defs::LOCK_STATES::UNLOCKED);
-        std::cout << "now result: " << result<< std::endl;
-        return result;
-    }
-    else {
+        return result->data;
+    } else {
         return 0;
     }
 }
 
-uint64_t Node::performRead(defs::GlobalAddress gaddr) {
+defs::SaveData *Node::performRead(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
-            auto data = reinterpret_cast<uint64_t *>(gaddr.ptr);
-            std::cout << gaddr.ptr << ", " << *data << std::endl;
-            return *data;
+        auto data = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
+        std::cout << gaddr.ptr << ", " << data->data << std::endl;
+        return data;
     } else {
         auto cacheItem = cache.getCacheItem(gaddr);
         if (cacheItem == nullptr) {
             auto data = sendAddress(gaddr.sendable(), defs::IMMDATA::READ);
-            auto result = *reinterpret_cast<uint64_t *>(data);
-            auto newCacheItem = CacheItem{gaddr, result, std::chrono::system_clock::now(),
-                                  std::chrono::system_clock::now()};
+            auto result = reinterpret_cast<defs::SaveData *>(data);
+            auto newCacheItem = CacheItem{gaddr, result->data, std::chrono::system_clock::now(),
+                                          std::chrono::system_clock::now()};
             cache.addCacheItem(gaddr, newCacheItem);
             return result;
         } else {
-
-            return cacheItem->data;
+            return new defs::SaveData{cacheItem->data,defs::CACHE_DIRECTORY_STATE::SHARED};
         }
     }
 }
-
 
 
 bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
@@ -98,14 +91,13 @@ bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
             locks.insert(std::pair<uint16_t, defs::LOCK_STATES>(lockId, state));
             return true;
         }
-
     } else {
         return sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS);
     }
 }
 
 defs::GlobalAddress Node::write(defs::Data *data) {
-    if (setLock(data->ga.id, defs::LOCK_STATES::EXCLUSIVE)){
+    if (setLock(data->ga.id, defs::LOCK_STATES::EXCLUSIVE)) {
         auto result = performWrite(data);
         setLock(data->ga.id, defs::LOCK_STATES::UNLOCKED);
         return result;
@@ -116,16 +108,12 @@ defs::GlobalAddress Node::write(defs::Data *data) {
 
 defs::GlobalAddress Node::performWrite(defs::Data *data) {
     if (isLocal(data->ga)) {
-        if (cache.state == defs::CACHE_DIRECTORY_STATE::UNSHARED) {
-                std::memcpy(data->ga.ptr, &data->data, data->size);
-                setLock(data->ga.id, defs::LOCK_STATES::UNLOCKED);
-                return data->ga;
-        } else {
-
-        }
+        std::memcpy(data->ga.ptr, &data->data, data->size);
+        return data->ga;
     } else {
-            auto result = sendData(data->sendable(), defs::IMMDATA::WRITE);
-            return result;
+        cache.removeCacheItem(data->ga);
+        auto result = sendData(data->sendable(), defs::IMMDATA::WRITE);
+        return result;
     }
 }
 
