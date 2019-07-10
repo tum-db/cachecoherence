@@ -7,25 +7,27 @@
 #include "../util/socket/tcp.h"
 
 
-void Node::connectClientSocket() {
-    auto remoteAddr = rdma::Address{network.getGID(), rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::connect(socket, defs::ip, defs::port);
-    l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
+Connection Node::connectClientSocket(uint16_t port) {
+    auto c = Connection{rdma::RcQueuePair(network, network.getSharedCompletionQueue()),l5::util::Socket::create()};
+    auto remoteAddr = rdma::Address{network.getGID(), c.rcqp.getQPN(), network.getLID()};
+    l5::util::tcp::connect(c.socket, defs::ip, port);
+    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
     std::cout << "connecting queuepairs" << std::endl;
-    rcqp.connect(remoteAddr);
+    c.rcqp.connect(remoteAddr);
+    return c;
 }
 
-void Node::closeClientSocket() {
+void Node::closeClientSocket(Connection *c) {
     std::cout << "closing socket" << std::endl;
     auto fakeLock = defs::Lock{id, defs::LOCK_STATES::UNLOCKED};
-    sendLock(fakeLock, defs::RESET);
-    rcqp.setToResetState();
-    socket.close();
+    sendLock(fakeLock, defs::RESET, c);
+    c->rcqp.setToResetState();
+    c->socket.close();
 }
 
 
-void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
+void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection *c) {
     auto &cq = network.getSharedCompletionQueue();
     auto size = sizeof(defs::SendGlobalAddr) + data.size;
     auto sendmr = network.registerMr(&data, sizeof(data) + data.size, {});
@@ -34,21 +36,21 @@ void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::write(c->socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c->socket, &remoteMr, sizeof(remoteMr));
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
-    rcqp.postWorkRequest(write);
+    c->rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
-    rcqp.postRecvRequest(recv);
+    c->rcqp.postRecvRequest(recv);
     cq.pollRecvWorkCompletionBlocking();
     return recvbuf;
 
 }
 
 
-defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData) {
+defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData, Connection *c) {
     std::cout << "sendable: " << data.data << std::endl;
     auto &cq = network.getSharedCompletionQueue();
     auto sendmr = network.registerMr(&data, sizeof(defs::SendingData), {});
@@ -57,27 +59,34 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::write(c->socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c->socket, &remoteMr, sizeof(remoteMr));
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
-    rcqp.postWorkRequest(write);
+    c->rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
-    rcqp.postRecvRequest(recv);
+    c->rcqp.postRecvRequest(recv);
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto newImmData = wc.getImmData();
     if (newImmData == defs::IMMDATA::INVALIDATE) {
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
         std::cout << "invalidating cache" << std::endl;
-        invalidate(*sga, &cq);
+        c->socket.close();
+        auto recv2 = ibv::workrequest::Recv{};
+        recv2.setSge(nullptr, 0);
+        c->rcqp.postRecvRequest(recv2);
+        cq.pollRecvWorkCompletionBlocking();
+        c->rcqp.setToResetState();
+        connectAndReceive(id);
+        // invalidation is running
     }
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
     return gaddr;
 }
 
-bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
+bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c) {
     auto &cq = network.getSharedCompletionQueue();
     auto sendmr = network.registerMr(&lock, sizeof(defs::Lock), {});
     auto recvbuf = malloc(sizeof(defs::Lock));
@@ -85,15 +94,15 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::write(c->socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c->socket, &remoteMr, sizeof(remoteMr));
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
-    rcqp.postWorkRequest(write);
+    c->rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     if (immData != defs::IMMDATA::RESET) {
         auto recv = ibv::workrequest::Recv{};
         recv.setSge(nullptr, 0);
-        rcqp.postRecvRequest(recv);
+        c->rcqp.postRecvRequest(recv);
         cq.pollRecvWorkCompletionBlocking();
         auto result = reinterpret_cast<bool *>(recvbuf);
         return *result;
@@ -102,21 +111,23 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
 }
 
 
-void Node::invalidate(defs::SendGlobalAddr sga, rdma::CompletionQueuePair *cq) {
+void Node::invalidate(rdma::CompletionQueuePair *cq, Connection *c) {
     auto recv2 = ibv::workrequest::Recv{};
     recv2.setSge(nullptr, 0);
-    rcqp.postRecvRequest(recv2);
+    c->rcqp.postRecvRequest(recv2);
     cq->pollRecvWorkCompletionBlocking();
+    c->socket.close();
     // invalidation is running
- //   connectAndReceive();
+    connectAndReceive(id);
+
 }
 
-void Node::broadcastInvalidations(std::array<uint16_t, defs::maxSharerNodes> nodes,
+void Node::broadcastInvalidations(std::vector<uint16_t> nodes,
                                   defs::GlobalAddress gaddr) {
-    for (int i = 0; i < nodes.size(); i++) {
-        std::cout << "invalidation of node " << nodes.at(i) << std::endl;
-     //   connectClientSocket();
-      //  sendAddress(gaddr.sendable(), defs::IMMDATA::INVALIDATE);
-      //  closeClientSocket();
+    for (const auto &n: nodes) {
+        std::cout << "invalidation of node " << n << std::endl;
+        auto connection = connectClientSocket(n);
+        sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, &connection);
+        closeClientSocket(&connection);
     }
 }

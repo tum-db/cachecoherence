@@ -17,7 +17,7 @@ void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
     if (gaddr.size <= maxsize) {
         if (availablesize >= gaddr.size) {
             items.insert(std::pair<uint64_t, CacheItem>(
-                    GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable()), cacheItem));
+                    GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable(0)), cacheItem));
             availablesize = availablesize - gaddr.size;
         } else {
             while (availablesize < gaddr.size) {
@@ -48,7 +48,7 @@ void Cache::removeOldestItem() {
 }
 
 CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
-    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable()));
+    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0)));
     if (cacheItem != items.end()) {
         cacheItem->second.lastused = std::chrono::system_clock::now();
         return &cacheItem->second;

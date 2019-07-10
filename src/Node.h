@@ -13,78 +13,80 @@
 #include <cstddef>
 #include <unordered_map>
 
+struct Connection{
+    rdma::RcQueuePair rcqp;
+    l5::util::Socket socket;
+};
 
 class Node {
 private:
     rdma::Network network;
     uint16_t id;
-    rdma::RcQueuePair rcqp;
     std::unordered_map<uint16_t, defs::LOCK_STATES> locks;
-    l5::util::Socket socket;
     Cache cache;
 
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                     rdma::CompletionQueuePair *cq);
+                     rdma::CompletionQueuePair *cq, Connection *c);
 
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                          rdma::CompletionQueuePair *cq);
+                          rdma::CompletionQueuePair *cq,  Connection *c);
 
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair *cq);
+                    rdma::CompletionQueuePair *cq,  Connection *c);
 
     void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair *cq);
+                    rdma::CompletionQueuePair *cq,  Connection *c);
 
-    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair *cq);
+    void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
+    remoteAddr, rdma::CompletionQueuePair *cq,  Connection *c);
 
     void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair *cq);
+    remoteAddr, rdma::CompletionQueuePair *cq,  Connection *c);
 
-    l5::util::Socket connectServerSocket();
+    l5::util::Socket connectServerSocket(Connection *c);
 
-    bool setLock(uint16_t lockId, defs::LOCK_STATES state);
+    bool setLock(uint16_t lockId, defs::LOCK_STATES state, Connection *c);
 
-    bool sendLock(defs::Lock lock, defs::IMMDATA immData);
+    bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c);
 
-    defs::GlobalAddress performWrite(defs::Data *data);
+    defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID, Connection *c);
 
-    defs::SaveData *performRead(defs::GlobalAddress gaddr);
+    defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID, Connection *c);
 
-    void invalidate(defs::SendGlobalAddr gaddr, rdma::CompletionQueuePair *cq);
+    void invalidate(rdma::CompletionQueuePair *cq, Connection *c);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
-                            rdma::CompletionQueuePair *cq, std::array<uint16_t,defs::maxSharerNodes> nodes);
+                            rdma::CompletionQueuePair *cq, std::vector<uint16_t> nodes, uint16_t srcID,  Connection *c);
 
 
-    void broadcastInvalidations(std::array<uint16_t,defs::maxSharerNodes> nodes, defs::GlobalAddress gaddr);
+    void broadcastInvalidations(std::vector<uint16_t> nodes, defs::GlobalAddress gaddr);
 
 
 public:
 
     explicit Node();
 
-    void connectClientSocket();
+    Connection connectClientSocket(uint16_t port);
 
-    void closeClientSocket();
+    void closeClientSocket(Connection *c);
 
-    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData);
+    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection *c);
 
-    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData);
+    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection *c);
 
 
-    void connectAndReceive();
+    void connectAndReceive(uint16_t port);
 
-    bool receive(l5::util::Socket *acced);
+    bool receive(l5::util::Socket *acced, Connection *c);
 
-    defs::GlobalAddress Malloc(size_t *size);
+    defs::GlobalAddress Malloc(size_t *size, Connection *c);
 
-    defs::GlobalAddress Free(defs::GlobalAddress gaddr);
+    defs::GlobalAddress Free(defs::GlobalAddress gaddr, Connection *c);
 
-    defs::GlobalAddress write(defs::Data *data);
+    defs::GlobalAddress write(defs::Data *data, Connection *c);
 
-    uint64_t read(defs::GlobalAddress gaddr);
+    uint64_t read(defs::GlobalAddress gaddr, Connection *c);
 
     bool isLocal(defs::GlobalAddress gaddr);
 

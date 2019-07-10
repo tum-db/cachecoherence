@@ -5,9 +5,8 @@
 #include "Node.h"
 
 
-Node::Node() : network(), id(), rcqp(network, network.getSharedCompletionQueue()), locks(), socket() {
+Node::Node() : network(), id(), locks(), cache() {
     id = 0;
-    socket = l5::util::Socket::create();
 }
 
 bool Node::isLocal(defs::GlobalAddress gaddr) {

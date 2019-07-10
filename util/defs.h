@@ -3,18 +3,18 @@
 //
 #include <cstddef>
 #include "../include/libibverbscpp/libibverbscpp.h"
+#include <vector>
 
 #ifndef MEDMM_DEFS_H
 #define MEDMM_DEFS_H
 
 namespace defs {
 
-    const int maxSharerNodes = 2;
 
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    const uint16_t locknode = 2;
+    const uint16_t locknode = 2000;
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
 
@@ -30,6 +30,7 @@ namespace defs {
         size_t size;
         uint64_t ptr;
         uint16_t id;
+        uint16_t srcID;
     };
 
     struct __attribute__ ((packed)) GlobalAddress {
@@ -37,11 +38,12 @@ namespace defs {
         void *ptr;
         uint16_t id;
 
-        SendGlobalAddr sendable(){
+        SendGlobalAddr sendable(uint16_t srcID){
             SendGlobalAddr sga{};
             sga.size = size;
             sga.ptr = reinterpret_cast<uint64_t >(ptr);
             sga.id = id;
+            sga.srcID = srcID;
             return sga;
         };
         GlobalAddress()= default;
@@ -78,9 +80,9 @@ namespace defs {
         uint64_t data;
         GlobalAddress ga;
 
-        SendingData sendable() {
+        SendingData sendable(uint16_t id) {
             SendingData sd{};
-            sd.sga = ga.sendable();
+            sd.sga = ga.sendable(id);
             sd.size = size;
             sd.data = data;
             return sd;
@@ -100,10 +102,10 @@ namespace defs {
         }
     };
 
-    struct __attribute__ ((packed)) SaveData {
+    struct SaveData {
         uint64_t data;
         CACHE_DIRECTORY_STATE iscached;
-        std::array<uint16_t,defs::maxSharerNodes> sharerNodes;
+        std::vector<uint16_t> sharerNodes;
     };
 
     enum LOCK_STATES {
