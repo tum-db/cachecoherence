@@ -39,6 +39,9 @@ private:
     bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq);
 
+    void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress
+    remoteAddr, rdma::CompletionQueuePair *cq);
+
     l5::util::Socket connectServerSocket();
 
     bool setLock(uint16_t lockId, defs::LOCK_STATES state);
@@ -52,10 +55,10 @@ private:
     void invalidate(defs::SendGlobalAddr gaddr, rdma::CompletionQueuePair *cq);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
-                            rdma::CompletionQueuePair *cq);
+                            rdma::CompletionQueuePair *cq, std::array<uint16_t,defs::maxSharerNodes> nodes);
 
 
-    void broadcastInvalidations(std::array<uint16_t,defs::maxSharerNodes> nodes);
+    void broadcastInvalidations(std::array<uint16_t,defs::maxSharerNodes> nodes, defs::GlobalAddress gaddr);
 
 
 public:

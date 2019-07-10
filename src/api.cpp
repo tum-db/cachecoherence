@@ -111,7 +111,7 @@ defs::GlobalAddress Node::performWrite(defs::Data *data) {
         std::memcpy(data->ga.ptr, &data->data, data->size);
         return data->ga;
     } else {
-        cache.removeCacheItem(data->ga);
+        cache.removeCacheItem(data->ga.sendable());
         auto result = sendData(data->sendable(), defs::IMMDATA::WRITE);
         return result;
     }

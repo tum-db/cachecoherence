@@ -33,7 +33,7 @@ public:
 
     void addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem);
 
-    void removeCacheItem(defs::GlobalAddress gaddr);
+    void removeCacheItem(defs::SendGlobalAddr sga);
 
     CacheItem *getCacheItem(defs::GlobalAddress ga);
 

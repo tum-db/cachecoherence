@@ -64,10 +64,9 @@ bool Node::receive(l5::util::Socket *acced) {
             *acced = connectServerSocket();
             return true;
         }
-        case defs::IMMDATA::INVALIDATE:
-        {
-            std::cout << "INVALIDATION completed" << std::endl;
-            rcqp.setToResetState();
+        case defs::IMMDATA::INVALIDATE: {
+            std::cout << "now Invalidation" << std::endl;
+            handleInvalidation(recvbuf, remoteMr, &cq);
 
             return false;
         }
@@ -82,7 +81,7 @@ void Node::connectAndReceive() {
     auto acced = connectServerSocket();
     bool connected = true;
     while (connected) {
-       connected = receive(&acced);
+        connected = receive(&acced);
     }
 }
 
@@ -145,7 +144,7 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     if (isLocal(data.ga)) {
         auto olddata = performRead(data.ga);
         if (olddata->iscached != defs::CACHE_DIRECTORY_STATE::UNSHARED) {
-            startInvalidations(data, remoteAddr, cq);
+            startInvalidations(data, remoteAddr, cq, olddata->sharerNodes);
             return true;
         }
     } else {
@@ -159,8 +158,17 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     }
 }
 
+void Node::handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                              rdma::CompletionQueuePair *cq) {
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    cache.removeCacheItem(*sga);
+    rcqp.setToResetState();
+}
+
+
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
-                             rdma::CompletionQueuePair *cq) {
+                              rdma::CompletionQueuePair *cq,
+                              std::array<uint16_t, defs::maxSharerNodes> nodes) {
     std::cout << "going to invalidate" << std::endl;
     auto invalidation = data.ga.sendable();
     auto sendmr1 = network.registerMr(&invalidation, sizeof(defs::SendGlobalAddr), {});
@@ -172,10 +180,10 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
     auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
                                           defs::IMMDATA::DEFAULT);
+   // socket.close();
     rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    rcqp.setToResetState();
-    socket.close();
-    connectClientSocket();
+  //  rcqp.setToResetState();
+    broadcastInvalidations(nodes, data.ga);
 
 }

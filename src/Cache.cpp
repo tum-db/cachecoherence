@@ -29,8 +29,8 @@ void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
     }
 }
 
-void Cache::removeCacheItem(defs::GlobalAddress gaddr) {
-    auto iterator = GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable());
+void Cache::removeCacheItem(defs::SendGlobalAddr sga) {
+    auto iterator = GlobalAddressHash<defs::SendGlobalAddr>()(sga);
     items.erase(iterator);
 }
 

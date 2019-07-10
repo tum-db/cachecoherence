@@ -14,25 +14,16 @@ void Node::connectClientSocket() {
     l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
     std::cout << "connecting queuepairs" << std::endl;
     rcqp.connect(remoteAddr);
-    rcqp.printQueuePairDetails();
 }
 
 void Node::closeClientSocket() {
+    std::cout << "closing socket" << std::endl;
     auto fakeLock = defs::Lock{id, defs::LOCK_STATES::UNLOCKED};
     sendLock(fakeLock, defs::RESET);
+    rcqp.setToResetState();
     socket.close();
 }
 
-void Node::invalidate(defs::SendGlobalAddr sga, rdma::CompletionQueuePair *cq) {
-    cache.removeCacheItem(defs::GlobalAddress(sga));
-    auto recv2 = ibv::workrequest::Recv{};
-    recv2.setSge(nullptr, 0);
-    rcqp.postRecvRequest(recv2);
-    cq->pollRecvWorkCompletionBlocking();
-    closeClientSocket();
-    // invalidation is running
-    connectAndReceive();
-}
 
 void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
@@ -59,7 +50,6 @@ void *Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData) {
 
 defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData) {
     std::cout << "sendable: " << data.data << std::endl;
-
     auto &cq = network.getSharedCompletionQueue();
     auto sendmr = network.registerMr(&data, sizeof(defs::SendingData), {});
     auto recvbuf = malloc(sizeof(defs::SendGlobalAddr));
@@ -79,6 +69,7 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
     auto newImmData = wc.getImmData();
     if (newImmData == defs::IMMDATA::INVALIDATE) {
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+        std::cout << "invalidating cache" << std::endl;
         invalidate(*sga, &cq);
     }
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
@@ -110,8 +101,22 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData) {
     return false;
 }
 
-void Node::broadcastInvalidations(std::array<uint16_t,defs::maxSharerNodes> nodes){
-    for( int i = 0; i < nodes.size(); i++){
 
+void Node::invalidate(defs::SendGlobalAddr sga, rdma::CompletionQueuePair *cq) {
+    auto recv2 = ibv::workrequest::Recv{};
+    recv2.setSge(nullptr, 0);
+    rcqp.postRecvRequest(recv2);
+    cq->pollRecvWorkCompletionBlocking();
+    // invalidation is running
+ //   connectAndReceive();
+}
+
+void Node::broadcastInvalidations(std::array<uint16_t, defs::maxSharerNodes> nodes,
+                                  defs::GlobalAddress gaddr) {
+    for (int i = 0; i < nodes.size(); i++) {
+        std::cout << "invalidation of node " << nodes.at(i) << std::endl;
+     //   connectClientSocket();
+      //  sendAddress(gaddr.sendable(), defs::IMMDATA::INVALIDATE);
+      //  closeClientSocket();
     }
 }
