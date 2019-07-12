@@ -12,7 +12,9 @@ int main() {
 
     if (servOcli == 0) {
         node.setID(3000);
-        node.connectAndReceive(node.getID());
+        while(true) {
+            node.connectAndReceive(node.getID());
+        }
     } else if (servOcli == 1) {
         node.setID(2000);
         auto connection = node.connectClientSocket(3000);

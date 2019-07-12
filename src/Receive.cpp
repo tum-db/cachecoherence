@@ -6,26 +6,16 @@
 #include "Node.h"
 #include "../util/socket/tcp.h"
 
-l5::util::Socket Node::connectServerSocket(Connection *c) {
-    auto remoteAddr = rdma::Address{network.getGID(), c->rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::listen(c->socket);
-    std::cout << "now listening... " << std::endl;
-    auto acced = l5::util::tcp::accept(c->socket);
-    l5::util::tcp::write(acced, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(acced, &remoteAddr, sizeof(remoteAddr));
-    c->rcqp.connect(remoteAddr);
-    return acced;
-}
 
-bool Node::receive(l5::util::Socket *acced, Connection *c) {
+bool Node::receive(Connection *c) {
     auto &cq = network.getSharedCompletionQueue();
     auto recvbuf = malloc(defs::BIGBADBUFFER_SIZE * 2);
     auto recvmr = network.registerMr(recvbuf, defs::BIGBADBUFFER_SIZE * 2,
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(*acced, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(*acced, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::write(c->socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c->socket, &remoteMr, sizeof(remoteMr));
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c->rcqp.postRecvRequest(recv);
@@ -62,13 +52,12 @@ bool Node::receive(l5::util::Socket *acced, Connection *c) {
         {
             std::cout << "RESETING NODES!!!!" << std::endl;
             c->rcqp.setToResetState();
-            *acced = connectServerSocket(c);
-            return true;
+            c->socket.close();
+            return false;
         }
         case defs::IMMDATA::INVALIDATE: {
             std::cout << "now Invalidation" << std::endl;
-            handleInvalidation(recvbuf, remoteMr, &cq, c);
-
+            handleInvalidation(recvbuf, c);
             return false;
         }
         default: {
@@ -78,12 +67,19 @@ bool Node::receive(l5::util::Socket *acced, Connection *c) {
 }
 
 void Node::connectAndReceive(uint16_t port) {
+    auto soc = l5::util::Socket::create();
     auto c = Connection{rdma::RcQueuePair(network, network.getSharedCompletionQueue()),l5::util::Socket::create()};
-    l5::util::tcp::bind(c.socket, port);
-    auto acced = connectServerSocket(&c);
+    l5::util::tcp::bind(soc, port);
+    auto remoteAddr = rdma::Address{network.getGID(), c.rcqp.getQPN(), network.getLID()};
+    l5::util::tcp::listen(soc);
+    std::cout << "now listening... " << std::endl;
+    c.socket = l5::util::tcp::accept(soc);
+    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
+    c.rcqp.connect(remoteAddr);
     bool connected = true;
     while (connected) {
-        connected = receive(&acced, &c);
+        connected = receive(&c);
     }
 }
 
@@ -170,12 +166,11 @@ void Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
 }
 
 // TODO: ACK
-void Node::handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                              rdma::CompletionQueuePair *cq,  Connection *c) {
+void Node::handleInvalidation(void *recvbuf, Connection *c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     cache.removeCacheItem(*sga);
     c->rcqp.setToResetState();
-}
+    c->socket.close();}
 
 
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,

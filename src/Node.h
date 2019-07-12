@@ -41,10 +41,8 @@ private:
     void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq,  Connection *c);
 
-    void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair *cq,  Connection *c);
+    void handleInvalidation(void *recvbuf, Connection *c);
 
-    l5::util::Socket connectServerSocket(Connection *c);
 
     bool setLock(uint16_t lockId, defs::LOCK_STATES state, Connection *c);
 
@@ -78,7 +76,7 @@ public:
 
     void connectAndReceive(uint16_t port);
 
-    bool receive(l5::util::Socket *acced, Connection *c);
+    bool receive(Connection *c);
 
     defs::GlobalAddress Malloc(size_t *size, Connection *c);
 

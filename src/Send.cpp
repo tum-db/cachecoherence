@@ -70,7 +70,6 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto newImmData = wc.getImmData();
     if (newImmData == defs::IMMDATA::INVALIDATE) {
-        auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
         std::cout << "invalidating cache" << std::endl;
         c->socket.close();
         auto recv2 = ibv::workrequest::Recv{};
