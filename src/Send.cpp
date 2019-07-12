@@ -8,7 +8,8 @@
 
 
 Connection Node::connectClientSocket(uint16_t port) {
-    auto c = Connection{rdma::RcQueuePair(network, network.getSharedCompletionQueue()),l5::util::Socket::create()};
+    auto c = Connection{rdma::RcQueuePair(network, network.getSharedCompletionQueue()),
+                        l5::util::Socket::create()};
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp.getQPN(), network.getLID()};
     l5::util::tcp::connect(c.socket, defs::ip, port);
     l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
@@ -70,15 +71,7 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto newImmData = wc.getImmData();
     if (newImmData == defs::IMMDATA::INVALIDATE) {
-        std::cout << "invalidating cache" << std::endl;
-        c->socket.close();
-        auto recv2 = ibv::workrequest::Recv{};
-        recv2.setSge(nullptr, 0);
-        c->rcqp.postRecvRequest(recv2);
-        cq.pollRecvWorkCompletionBlocking();
-        c->rcqp.setToResetState();
-        connectAndReceive(id);
-        // invalidation is running
+        prepareForInvalidate(&cq, c);
     }
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
@@ -110,15 +103,14 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c) {
 }
 
 
-void Node::invalidate(rdma::CompletionQueuePair *cq, Connection *c) {
+void Node::prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection *c) {
+    std::cout << "invalidating cache" << std::endl;
     auto recv2 = ibv::workrequest::Recv{};
     recv2.setSge(nullptr, 0);
     c->rcqp.postRecvRequest(recv2);
     cq->pollRecvWorkCompletionBlocking();
-    c->socket.close();
-    // invalidation is running
     connectAndReceive(id);
-
+    // invalidation is running
 }
 
 void Node::broadcastInvalidations(std::vector<uint16_t> nodes,

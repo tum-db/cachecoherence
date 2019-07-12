@@ -176,7 +176,7 @@ void Node::handleInvalidation(void *recvbuf, Connection *c) {
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair *cq,
                               std::vector<uint16_t> nodes, uint16_t srcID,  Connection *c) {
-    std::cout << "going to invalidate" << std::endl;
+    std::cout << "going to prepareForInvalidate" << std::endl;
     auto invalidation = data.ga.sendable(srcID);
     auto sendmr1 = network.registerMr(&invalidation, sizeof(defs::SendGlobalAddr), {});
     auto write1 = defs::createWriteWithImm(sendmr1->getSlice(), remoteAddr,
@@ -189,8 +189,6 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
                                           defs::IMMDATA::DEFAULT);
     c->rcqp.postWorkRequest(write);
     cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    c->rcqp.setToResetState();
-    c->socket.close();
     broadcastInvalidations(nodes, data.ga);
 
 }

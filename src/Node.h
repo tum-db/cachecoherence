@@ -52,7 +52,7 @@ private:
 
     defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID, Connection *c);
 
-    void invalidate(rdma::CompletionQueuePair *cq, Connection *c);
+    void prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection *c);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair *cq, std::vector<uint16_t> nodes, uint16_t srcID,  Connection *c);
