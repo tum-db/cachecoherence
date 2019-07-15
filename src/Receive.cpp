@@ -50,9 +50,7 @@ bool Node::receive(Connection *c) {
         }
         case defs::IMMDATA::RESET: //immdata = 6, reset state
         {
-            std::cout << "RESETING NODES!!!!" << std::endl;
-            c->rcqp.setToResetState();
-            c->socket.close();
+            handleReset(remoteMr, &cq, c);
             return false;
         }
         case defs::IMMDATA::INVALIDATE: {
@@ -170,7 +168,21 @@ void Node::handleInvalidation(void *recvbuf, Connection *c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     cache.removeCacheItem(*sga);
     c->rcqp.setToResetState();
-    c->socket.close();}
+    c->socket.close();
+}
+
+void Node::handleReset(ibv::memoryregion::RemoteAddress
+remoteAddr, rdma::CompletionQueuePair *cq, Connection *c){
+    bool result = false;
+    std::cout << "RESETING NODES!!!!" << std::endl;
+    auto sendmr = network.registerMr(&result, sizeof(bool), {});
+    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
+                                          defs::IMMDATA::RESET);
+    c->rcqp.postWorkRequest(write);
+    cq->pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+    c->rcqp.setToResetState();
+    c->socket.close();
+}
 
 
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,

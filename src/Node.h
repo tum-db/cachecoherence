@@ -42,9 +42,11 @@ private:
     remoteAddr, rdma::CompletionQueuePair *cq,  Connection *c);
 
     void handleInvalidation(void *recvbuf, Connection *c);
+    void handleReset(ibv::memoryregion::RemoteAddress
+    remoteAddr, rdma::CompletionQueuePair *cq, Connection *c);
 
 
-    bool setLock(uint16_t lockId, defs::LOCK_STATES state, Connection *c);
+        bool setLock(uint16_t lockId, defs::LOCK_STATES state, Connection *c);
 
     bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c);
 

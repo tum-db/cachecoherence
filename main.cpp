@@ -38,9 +38,14 @@ int main() {
         node.write(newdata, &connection);
         auto result2 = node.read(*test, &connection);
         std::cout << "Done. Result: "<< result2 << std::endl;
-        node.Free(*test, &connection);
-        std::cout << "Done freeing. " << std::endl;
         node.closeClientSocket(&connection);
+        std::cout << "Now the first connection is closed. new connection. "<< std::endl;
+        auto connection2 = node.connectClientSocket(3000);
+        std::cout << "Trying to read with the new connection "<< std::endl;
+        auto result3 = node.read(*test, &connection);
+        std::cout << "Done. Result: "<< result3 << ", now we free the memory"<< std::endl;
+        node.Free(*test, &connection2);
+        std::cout << "Done freeing. " << std::endl;
     } else {
         std::cout << "This was no valid Number!" << std::endl;
     }

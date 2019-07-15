@@ -2,6 +2,8 @@
 // Created by Magdalena Pröbstl on 2019-06-15.
 //
 
+#include <chrono>
+#include <thread>
 #include "Node.h"
 #include "../util/defs.h"
 #include "../util/socket/tcp.h"
@@ -11,7 +13,15 @@ Connection Node::connectClientSocket(uint16_t port) {
     auto c = Connection{rdma::RcQueuePair(network, network.getSharedCompletionQueue()),
                         l5::util::Socket::create()};
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp.getQPN(), network.getLID()};
-    l5::util::tcp::connect(c.socket, defs::ip, port);
+    for (int i = 0;; ++i) {
+        try {
+            l5::util::tcp::connect(c.socket, defs::ip, port);
+            break;
+        } catch (...) {
+            std::this_thread::sleep_for(std::chrono_literals::operator""ms(20));
+            if (i > 10) throw;
+        }
+    }
     l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
     std::cout << "connecting queuepairs" << std::endl;
@@ -91,15 +101,13 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c) {
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
     c->rcqp.postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    if (immData != defs::IMMDATA::RESET) {
-        auto recv = ibv::workrequest::Recv{};
-        recv.setSge(nullptr, 0);
-        c->rcqp.postRecvRequest(recv);
-        cq.pollRecvWorkCompletionBlocking();
-        auto result = reinterpret_cast<bool *>(recvbuf);
-        return *result;
-    }
-    return false;
+    auto recv = ibv::workrequest::Recv{};
+    recv.setSge(nullptr, 0);
+    c->rcqp.postRecvRequest(recv);
+    cq.pollRecvWorkCompletionBlocking();
+    auto result = reinterpret_cast<bool *>(recvbuf);
+    return *result;
+
 }
 
 
