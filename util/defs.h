@@ -21,7 +21,7 @@ namespace defs {
     enum CACHE_DIRECTORY_STATE {
         UNSHARED = 0,
         SHARED = 1,
-        DIRTY = 2
+        EXCLUS = 2
     };
 
 
