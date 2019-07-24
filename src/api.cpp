@@ -108,8 +108,9 @@ bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
         }
     } else {
         auto c = connectClientSocket(defs::locknode);
-        return sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS, &c);
+        auto res = sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS, &c);
         closeClientSocket(&c);
+        return res;
     }
 }
 
@@ -118,6 +119,7 @@ defs::GlobalAddress Node::write(defs::Data *data) {
     if (setLock(data->ga.id, defs::LOCK_STATES::EXCLUSIVE)) {
         if (isLocal(data->ga)) {
             auto d = reinterpret_cast<defs::SaveData *>(data->ga.ptr);
+            std::cout <<"getting cachedata for write"<< d->iscached << ", "<<d->sharerNodes.empty() << std::endl;
             if (d->iscached >= 0 && !d->sharerNodes.empty()) {
                 broadcastInvalidations(d->sharerNodes, data->ga);
             }
@@ -144,6 +146,7 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
         auto c = connectClientSocket(port);
         cache.removeCacheItem(data->ga.sendable(srcID));
         auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, &c);
+        std::cout << c.socket.get() << ", " << c.rcqp.getQPN() << std::endl;
         closeClientSocket(&c);
         return result;
     }

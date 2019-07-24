@@ -18,7 +18,7 @@ Connection Node::connectClientSocket(uint16_t port) {
             l5::util::tcp::connect(c.socket, defs::ip, port);
             break;
         } catch (...) {
-            std::this_thread::sleep_for(std::chrono_literals::operator""ms(20));
+            std::this_thread::sleep_for(std::chrono_literals::operator ""ms(20));
             if (i > 10) throw;
         }
     }
@@ -81,7 +81,11 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto newImmData = wc.getImmData();
     if (newImmData == defs::IMMDATA::INVALIDATE) {
-        prepareForInvalidate(&cq, c);
+        std::cout << "before invalidation: " << c->socket.get() << ", " << c->rcqp.getQPN()
+                  << std::endl;
+        prepareForInvalidate(&cq, &c);
+        std::cout << "should be changed: "<< c->socket.get() << ", " << c->rcqp.getQPN()<< c << std::endl;
+
     }
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
@@ -111,14 +115,20 @@ bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c) {
 }
 
 
-void Node::prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection *c) {
+void Node::prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection **c) {
     std::cout << "invalidating cache" << std::endl;
-    auto recv2 = ibv::workrequest::Recv{};
-    recv2.setSge(nullptr, 0);
-    c->rcqp.postRecvRequest(recv2);
+    auto recv = ibv::workrequest::Recv{};
+    recv.setSge(nullptr, 0);
+    (*c)->rcqp.postRecvRequest(recv);
     cq->pollRecvWorkCompletionBlocking();
+    (*c)->rcqp.setToResetState();
+    (*c)->socket.close();
     connectAndReceive(id);
-    // invalidation is running
+    auto newcon = connectClientSocket(3000);
+    std::cout << (*c)->socket.get() << ", " << (*c)->rcqp.getQPN() << std::endl;
+    *c = &newcon;
+    std::cout << (*c)->socket.get() << ", " << (*c)->rcqp.getQPN() << c << std::endl;
+
 }
 
 void Node::broadcastInvalidations(std::vector<uint16_t> nodes,
@@ -126,7 +136,9 @@ void Node::broadcastInvalidations(std::vector<uint16_t> nodes,
     for (const auto &n: nodes) {
         std::cout << "invalidation of node " << n << std::endl;
         auto connection = connectClientSocket(n);
-        sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, &connection);
+        auto res = sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, &connection);
         closeClientSocket(&connection);
+
     }
+    std::cout << "done invaldating" << std::endl;
 }

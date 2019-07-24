@@ -38,10 +38,11 @@ private:
     void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair *cq, Connection *c);
 
-    void handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
+    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
     remoteAddr, rdma::CompletionQueuePair *cq, Connection *c);
 
-    void handleInvalidation(void *recvbuf, Connection *c);
+    void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                            rdma::CompletionQueuePair *cq, Connection *c);
 
     void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair *cq,
                      Connection *c);
@@ -54,7 +55,7 @@ private:
 
     defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
-    void prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection *c);
+    void prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection **c);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair *cq, std::vector<uint16_t> nodes,
