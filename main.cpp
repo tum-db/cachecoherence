@@ -22,8 +22,8 @@ int main() {
         size_t size = sizeof(d);
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0);
-        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC, &conn);
-        node.closeClientSocket(&conn);
+        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC, conn);
+        node.closeClientSocket(conn);
         auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
         std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
         auto data = defs::Data(sizeof(uint64_t), d, *test);

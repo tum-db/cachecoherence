@@ -10,13 +10,9 @@
 #include "../rdma/CompletionQueuePair.hpp"
 #include "../util/defs.h"
 #include "Cache.h"
+#include "Connection.h"
 #include <cstddef>
 #include <unordered_map>
-
-struct Connection {
-    rdma::RcQueuePair rcqp;
-    l5::util::Socket socket;
-};
 
 class Node {
 private:
@@ -27,39 +23,39 @@ private:
 
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                     rdma::CompletionQueuePair *cq, Connection *c);
+                     rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                          rdma::CompletionQueuePair *cq, Connection *c);
+                          rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair *cq, Connection *c);
+                    rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair *cq, Connection *c);
+                    rdma::CompletionQueuePair &cq, Connection &c);
 
     bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair *cq, Connection *c);
+    remoteAddr, rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                            rdma::CompletionQueuePair *cq, Connection *c);
+                            rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair *cq,
-                     Connection *c);
+    void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair &cq,
+                     Connection &c);
 
     bool setLock(uint16_t lockId, defs::LOCK_STATES state);
 
-    bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection *c);
+    bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection &c);
 
     defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID);
 
     defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
-    void prepareForInvalidate(rdma::CompletionQueuePair *cq, Connection **c);
+    void prepareForInvalidate(rdma::CompletionQueuePair &cq, Connection &c);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
-                            rdma::CompletionQueuePair *cq, std::vector<uint16_t> nodes,
-                            uint16_t srcID, Connection *c);
+                            rdma::CompletionQueuePair &cq, std::vector<uint16_t> nodes,
+                            uint16_t srcID, Connection &c);
 
 
     void broadcastInvalidations(std::vector<uint16_t> nodes, defs::GlobalAddress gaddr);
@@ -71,16 +67,16 @@ public:
 
     Connection connectClientSocket(uint16_t port);
 
-    void closeClientSocket(Connection *c);
+    void closeClientSocket(Connection &c);
 
-    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection *c);
+    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
 
-    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection *c);
+    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
 
     void connectAndReceive(uint16_t port);
 
-    bool receive(Connection *c);
+    bool receive(Connection &c);
 
     defs::GlobalAddress Malloc(size_t *size);
 

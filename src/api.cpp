@@ -19,10 +19,10 @@ defs::GlobalAddress Node::Malloc(size_t *size) {
         auto port = defs::port;
         auto c = connectClientSocket(port);
         auto res = sendAddress(defs::GlobalAddress{*size, 0, 0}.sendable(id), defs::IMMDATA::MALLOC,
-                               &c);
+                               c);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
         c.socket.close();
-        c.rcqp.setToResetState();
+        c.rcqp->setToResetState();
         return defs::GlobalAddress(*sga);
     }
 }
@@ -38,10 +38,10 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
-        auto res = sendAddress(gaddr.sendable(id), defs::IMMDATA::FREE, &c);
+        auto res = sendAddress(gaddr.sendable(id), defs::IMMDATA::FREE, c);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
         auto add = defs::GlobalAddress(*sga);
-        closeClientSocket(&c);
+        closeClientSocket(c);
         return add;
     }
 }
@@ -69,12 +69,12 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
         if (cacheItem == nullptr) {
             auto port = defs::port;
             auto c = connectClientSocket(port);
-            auto data = sendAddress(gaddr.sendable(srcID), defs::IMMDATA::READ, &c);
+            auto data = sendAddress(gaddr.sendable(srcID), defs::IMMDATA::READ, c);
             auto result = reinterpret_cast<defs::SaveData *>(data);
             auto newCacheItem = CacheItem{gaddr, result->data, std::chrono::system_clock::now(),
                                           std::chrono::system_clock::now()};
             cache.addCacheItem(gaddr, newCacheItem);
-            closeClientSocket(&c);
+            closeClientSocket(c);
             return result;
         } else {
             return new defs::SaveData{cacheItem->data, defs::CACHE_DIRECTORY_STATE::SHARED,
@@ -108,8 +108,8 @@ bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
         }
     } else {
         auto c = connectClientSocket(defs::locknode);
-        auto res = sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS, &c);
-        closeClientSocket(&c);
+        auto res = sendLock(defs::Lock{lockId, state}, defs::IMMDATA::LOCKS, c);
+        closeClientSocket(c);
         return res;
     }
 }
@@ -145,9 +145,9 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
         auto port = defs::port;
         auto c = connectClientSocket(port);
         cache.removeCacheItem(data->ga.sendable(srcID));
-        auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, &c);
-        std::cout << c.socket.get() << ", " << c.rcqp.getQPN() << std::endl;
-        closeClientSocket(&c);
+        auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, c);
+        std::cout << c.socket.get() << ", " << c.rcqp->getQPN() << std::endl;
+        closeClientSocket(c);
         return result;
     }
 }
