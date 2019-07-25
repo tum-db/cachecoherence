@@ -14,11 +14,11 @@ class Connection {
 public:
     Connection(Connection &&c) noexcept;
 
-    Connection(rdma::RcQueuePair *uniquePtr, l5::util::Socket s);
+    Connection(std::unique_ptr<rdma::RcQueuePair> uniquePtr, l5::util::Socket s);
 
     Connection &operator=(Connection &&other) noexcept;
 
-    rdma::RcQueuePair *rcqp;
+    std::unique_ptr<rdma::RcQueuePair> rcqp;
     l5::util::Socket socket;
 
 

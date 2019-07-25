@@ -68,7 +68,8 @@ bool Node::receive(Connection &c) {
 
 void Node::connectAndReceive(uint16_t port) {
     auto soc = l5::util::Socket::create();
-    auto c = Connection{new rdma::RcQueuePair(network, network.getSharedCompletionQueue()),
+    auto qp = std::make_unique<rdma::RcQueuePair>(rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
+    auto c = Connection{std::move(qp),
                         l5::util::Socket::create()};
     l5::util::tcp::bind(soc, port);
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};

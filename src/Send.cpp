@@ -10,7 +10,8 @@
 
 
 Connection Node::connectClientSocket(uint16_t port) {
-    auto c = Connection{new rdma::RcQueuePair(network, network.getSharedCompletionQueue()), l5::util::Socket::create()};
+    auto qp = std::make_unique<rdma::RcQueuePair>(rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
+    auto c = Connection{std::move(qp), l5::util::Socket::create()};
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};
     for (int i = 0;; ++i) {
         try {
