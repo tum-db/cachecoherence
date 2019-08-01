@@ -8,15 +8,17 @@ set(WARNINGS "${WARNINGS} -Wformat=2 -Wshadow=local -Wodr")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic ${WARNINGS}")
 
 file(GLOB COMMON_SOURCES
-        src/*.cpp
+        app/*.cpp
         rdma/*.cpp
+        src/*.cpp
         util/*.cpp
         util/socket/*.cpp
         )
 file(GLOB COMMON_HEADERS
-        src/*.h
+        app/*.h
         rdma/*.h
         rdma/*.hpp
+        src/*.h
         util/*.h
         util/socket/*.h
         )

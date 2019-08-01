@@ -25,7 +25,6 @@ namespace defs {
     };
 
 
-
     struct __attribute__ ((packed)) SendGlobalAddr {
         size_t size;
         uint64_t ptr;
@@ -38,7 +37,7 @@ namespace defs {
         void *ptr;
         uint16_t id;
 
-        SendGlobalAddr sendable(uint16_t srcID){
+        SendGlobalAddr sendable(uint16_t srcID) {
             SendGlobalAddr sga{};
             sga.size = size;
             sga.ptr = reinterpret_cast<uint64_t >(ptr);
@@ -46,14 +45,16 @@ namespace defs {
             sga.srcID = srcID;
             return sga;
         };
-        GlobalAddress()= default;
-        GlobalAddress(size_t s, void* p, uint16_t i){
+
+        GlobalAddress() = default;
+
+        GlobalAddress(size_t s, void *p, uint16_t i) {
             size = s;
             ptr = p;
             id = i;
         };
 
-        explicit GlobalAddress(SendGlobalAddr sga){
+        explicit GlobalAddress(SendGlobalAddr sga) {
             size = sga.size;
             ptr = reinterpret_cast<void *>(sga.ptr);
             id = sga.id;
@@ -65,7 +66,6 @@ namespace defs {
     };
 
 
-
     struct __attribute__ ((packed)) SendingData {
         size_t size;
         uint64_t data;
@@ -74,8 +74,7 @@ namespace defs {
     };
 
 
-
-    struct __attribute__ ((packed)) Data{
+    struct __attribute__ ((packed)) Data {
         size_t size;
         uint64_t data;
         GlobalAddress ga;
@@ -87,15 +86,16 @@ namespace defs {
             sd.data = data;
             return sd;
         }
-        Data()= default;
 
-        Data(size_t s, uint64_t d, GlobalAddress g){
+        Data() = default;
+
+        Data(size_t s, uint64_t d, GlobalAddress g) {
             size = s;
             data = d;
             ga = g;
         };
 
-        explicit Data(SendingData sd){
+        explicit Data(SendingData sd) {
             size = sd.size;
             data = sd.data;
             ga = GlobalAddress(sd.sga);
@@ -105,6 +105,7 @@ namespace defs {
     struct SaveData {
         uint64_t data;
         CACHE_DIRECTORY_STATE iscached;
+        uint16_t ownerNode;
         std::vector<uint16_t> sharerNodes;
     };
 
@@ -124,7 +125,6 @@ namespace defs {
         RESET = 6,
         INVALIDATE = 7
     };
-
 
 
     struct __attribute__ ((packed)) Lock {

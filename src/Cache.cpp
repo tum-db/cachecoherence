@@ -29,8 +29,8 @@ void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
     }
 }
 
-uint64_t Cache::removeCacheItem(defs::SendGlobalAddr sga) {
-    auto iterator = GlobalAddressHash<defs::SendGlobalAddr>()(sga);
+uint64_t Cache::removeCacheItem(defs::GlobalAddress ga) {
+    auto iterator = GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0));
     auto res = items.erase(iterator);
     return res;
 }
@@ -55,5 +55,15 @@ CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
         return &cacheItem->second;
     } else {
         return nullptr;
+    }
+}
+
+void Cache::alterCacheItem(CacheItem ci, defs::GlobalAddress ga){
+    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0)));
+    if(cacheItem != items.end()){
+        cacheItem->second = ci;
+    }
+    else{
+        addCacheItem(ga, ci);
     }
 }

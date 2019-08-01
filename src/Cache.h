@@ -33,9 +33,11 @@ public:
 
     void addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem);
 
-    uint64_t removeCacheItem(defs::SendGlobalAddr sga);
+    uint64_t removeCacheItem(defs::GlobalAddress ga);
 
     CacheItem *getCacheItem(defs::GlobalAddress ga);
+
+    void alterCacheItem(CacheItem cacheItem, defs::GlobalAddress ga);
 
     defs::CACHE_DIRECTORY_STATE state;
 };

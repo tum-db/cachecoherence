@@ -171,7 +171,7 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
 void Node::handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair &cq, Connection &c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
-    auto res = cache.removeCacheItem(*sga);
+    auto res = cache.removeCacheItem(defs::GlobalAddress(*sga));
     std::cout << "removed cacheitem" << std::endl;
     auto sendmr = network.registerMr(&res, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
