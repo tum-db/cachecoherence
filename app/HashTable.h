@@ -9,8 +9,23 @@
 #include <cstdint>
 #include <optional>
 #include <vector>
+#include <array>
+#include "HashBucket.h"
+#include <iostream>
 
-template <typename V> class HashTable {
+
+const uint32_t amountNodes = 2;
+const uint16_t ns[] = {2000, 3000};
+
+template<typename V>
+struct Element{
+    uint32_t key;
+    V value;
+    Element *next;
+};
+
+template<typename V>
+class HashTable {
 
     static constexpr uint32_t hash(uint32_t key) {
         key = (key ^ 61) ^ (key >> 16);
@@ -21,23 +36,29 @@ template <typename V> class HashTable {
         return key;
     }
 
-
-    struct Element{
-        uint32_t key;
-        V value;
-        Element *next;
+    struct Buck{
+        uint16_t id;
+        uint64_t lb; //lowerbound
+        uint64_t ub; //upperbound
     };
 
-    std::vector<Element *> items;
-
+    std::array<Buck, amountNodes> buckets;
 
     std::size_t amountElements = 0;
 public:
     /**
      * Constructor
      */
-    HashTable();
 
+   HashTable() {
+       // buckets = new std::array<Buck, amountNodes>;
+        auto lb = 0;
+        for (int i = 0; i < amountNodes; ++i) {
+            buckets[i] = Buck{ns[i], lb, lb + sizeof(lb) / amountNodes};
+            lb = lb + sizeof(lb) / amountNodes;
+            std::cout << buckets[i].id << ", " << buckets[i].lb << ", " << buckets[i].ub << std::endl;
+        }
+    }
     /**
      * Destructor
      */
@@ -52,6 +73,7 @@ public:
      * @param value
      */
     void insert(uint32_t key, V value);
+
     /**
      * remove element from HT
      *
@@ -60,6 +82,7 @@ public:
      * @param key
      */
     void erase(uint32_t key) {
+
         // ## INSERT CODE HERE
     }
 

@@ -1,10 +1,12 @@
 #include <iostream>
 #include "rdma/Network.hpp"
 #include "src/Node.h"
+#include "app/HashTable.h"
 
 
 int main() {
     auto node = Node();
+    HashTable<bool> h = HashTable<bool>();
 
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
