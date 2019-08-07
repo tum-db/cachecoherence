@@ -78,7 +78,7 @@ public:
 
     bool receive(Connection &c);
 
-    defs::GlobalAddress Malloc(size_t *size);
+    defs::GlobalAddress Malloc(size_t size);
 
     defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 

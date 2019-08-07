@@ -50,4 +50,5 @@ int main() {
     } else {
         std::cout << "This was no valid Number!" << std::endl;
     }
+    return 0;
 }

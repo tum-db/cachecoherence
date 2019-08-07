@@ -11,21 +11,18 @@
 #include <vector>
 #include <array>
 #include "HashBucket.h"
+#include "../src/Node.h"
 #include <iostream>
+#include <cmath>
 
 
-const uint32_t amountNodes = 2;
-const uint16_t ns[] = {2000, 3000};
-
-template<typename V>
-struct Element{
-    uint32_t key;
-    V value;
-    Element *next;
-};
+const uint32_t amountNodes = 3;
+const uint16_t ns[] = {2000, 3000, 4000};
 
 template<typename V>
 class HashTable {
+
+    Node node;
 
     static constexpr uint32_t hash(uint32_t key) {
         key = (key ^ 61) ^ (key >> 16);
@@ -36,29 +33,42 @@ class HashTable {
         return key;
     }
 
-    struct Buck{
-        uint16_t id;
-        uint64_t lb; //lowerbound
-        uint64_t ub; //upperbound
+    struct Elem {
+        uint32_t key;
+        defs::GlobalAddress gaddr;
+        Elem *next;
     };
 
-    std::array<Buck, amountNodes> buckets;
 
     std::size_t amountElements = 0;
+
+
+    std::vector<Elem *> storage;
+
+    uint32_t hashBucket(uint32_t key) const { return hash(key) % storage.size(); }
+
 public:
     /**
      * Constructor
      */
 
-   HashTable() {
-       // buckets = new std::array<Buck, amountNodes>;
-        auto lb = 0;
-        for (int i = 0; i < amountNodes; ++i) {
-            buckets[i] = Buck{ns[i], lb, lb + sizeof(lb) / amountNodes};
-            lb = lb + sizeof(lb) / amountNodes;
-            std::cout << buckets[i].id << ", " << buckets[i].lb << ", " << buckets[i].ub << std::endl;
-        }
+    HashTable() : node() {
+        // buckets = new std::array<Buck, amountNodes>;
+//        uint32_t lb = 0;
+//        uint32_t ub = 0;
+//        for (int i = 0; i < amountNodes; ++i) {
+//            if(i == amountNodes-1){
+//                ub = std::numeric_limits<uint32_t>::max();
+//            } else {
+//                ub = lb + std::numeric_limits<uint32_t>::max()/ amountNodes;
+//            }
+//            buckets[i] = HashBucket<V>(ns[i], lb, ub);
+//            lb = ub;
+//            std::cout << buckets[i].getId() << ", " << buckets[i].getLb() << ", " << buckets[i].getUb() << std::endl;
+//        }
     }
+
+
     /**
      * Destructor
      */
@@ -74,43 +84,13 @@ public:
      */
     void insert(uint32_t key, V value);
 
-    /**
-     * remove element from HT
-     *
-     * used for remove
-     *
-     * @param key
-     */
-    void erase(uint32_t key) {
 
-        // ## INSERT CODE HERE
-    }
+    void erase(uint32_t key);
 
-    /**
-     * get element from HT wrapped in optional
-     *
-     * used for const lookup
-     *
-     * @param key
-     * @return optional containing the element or nothing if not exists
-     */
-    std::optional<V> get(uint32_t key) const {
-        // ## INSERT CODE HERE
-        return std::nullopt;
-    }
+    std::optional<V> get(uint32_t key) const;
 
-    /**
-     * get reference to existing HT element or insert new at key
-     *
-     * used for lookups, inserts, and editing the HT elements
-     *
-     * @param key
-     * @return reference to HT element
-     */
-    V &operator[](uint32_t key) {
-        // ## INSERT CODE HERE
-        // return 0;
-    }
+    V &operator[](uint32_t key);
+
 
     /**
      * get count of contained elements
@@ -121,8 +101,7 @@ public:
      * @return 0 if not contained, 1 if contained
      */
     uint64_t count(uint32_t key) const {
-        // ## INSERT CODE HERE
-        return 0;
+        return get(key).has_value();
     }
 
     /**
@@ -131,8 +110,7 @@ public:
      * @return HT size
      */
     std::size_t size() const {
-        // ## INSERT CODE HERE
-        return 0;
+        return amountElements;
     }
 
     /**
@@ -141,15 +119,18 @@ public:
      * @return true if HT empty
      */
     bool empty() const {
-        // ## INSERT CODE HERE
-        return false;
+
+        return !size();
     }
 
     /**
      * empty the HT
      */
     void clear() {
-        // ## INSERT CODE HERE
+        for (auto &b: storage) {
+            node.Free(b->gaddr);
+        }
+        amountElements = 0;
     }
 
 };

@@ -9,17 +9,17 @@
 #include "../util/defs.h"
 
 
-defs::GlobalAddress Node::Malloc(size_t *size) {
-    auto buffer = malloc(*size);
+defs::GlobalAddress Node::Malloc(size_t size) {
+    auto buffer = malloc(size);
     if (buffer) {
         std::cout << buffer << std::endl;
-        auto gaddr = defs::GlobalAddress{*size, buffer, id};
+        auto gaddr = defs::GlobalAddress{size, buffer, id};
         return gaddr;
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
 
-        auto res = sendAddress(defs::GlobalAddress{*size, 0, 0}.sendable(id), defs::IMMDATA::MALLOC,
+        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0}.sendable(id), defs::IMMDATA::MALLOC,
                                c);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
 

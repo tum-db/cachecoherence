@@ -91,7 +91,7 @@ void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remo
                             rdma::CompletionQueuePair &cq, Connection &c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
-    auto newgaddr = Malloc(&gaddr.size).sendable(sga->srcID);
+    auto newgaddr = Malloc(gaddr.size).sendable(sga->srcID);
     auto sendmr = network.registerMr(&newgaddr, sizeof(defs::GlobalAddress), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
