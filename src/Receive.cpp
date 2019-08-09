@@ -40,10 +40,9 @@ bool Node::receive(Connection &c) {
         }
         case defs::IMMDATA::WRITE:  //immdata = 4, write
         {
-            std::cout << "NOW WE WRITE" << std::endl;
 
             auto res = handleWrite(recvbuf, remoteMr, cq, c);
-            std::cout << "result of write: "<< res << std::endl;
+            std::cout << "result of write: " << res << std::endl;
             return res;
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
@@ -57,7 +56,7 @@ bool Node::receive(Connection &c) {
             return false;
         }
         case defs::IMMDATA::INVALIDATE: {
-            handleInvalidation(recvbuf,remoteMr,cq, c);
+            handleInvalidation(recvbuf, remoteMr, cq, c);
             return true;
         }
         default: {
@@ -68,7 +67,8 @@ bool Node::receive(Connection &c) {
 
 void Node::connectAndReceive(uint16_t port) {
     auto soc = l5::util::Socket::create();
-    auto qp = std::make_unique<rdma::RcQueuePair>(rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
+    auto qp = std::make_unique<rdma::RcQueuePair>(
+            rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
     auto c = Connection{std::move(qp),
                         l5::util::Socket::create()};
     l5::util::tcp::bind(soc, port);
@@ -77,7 +77,7 @@ void Node::connectAndReceive(uint16_t port) {
     std::cout << "now listening... ";
     c.socket = l5::util::tcp::accept(soc);
     soc.close();
-    std::cout << "and accepted" <<std::endl;
+    std::cout << "and accepted" << std::endl;
     l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
     c.rcqp->connect(remoteAddr);
@@ -143,10 +143,10 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     auto data = defs::Data(*senddata);
     auto olddata = performRead(data.ga, senddata->sga.srcID);
     if (olddata != nullptr) {
-        std::cout << "olddata: " << olddata->data << ", is cached: " << olddata->iscached
-                  << ", first sharernode: " << olddata->sharerNodes[0] << std::endl;
-        if ((olddata->iscached != defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
-            (!olddata->sharerNodes.empty())) {
+        /*std::cout << "olddata: " << olddata->data << ", is cached: " << olddata->iscached
+                  << ", first sharernode: " << olddata->sharerNodes[0] << std::endl;*/
+        if ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
+            (!olddata->sharerNodes.empty()) && olddata->iscached < 3) {
             startInvalidations(data, remoteAddr, cq, olddata->sharerNodes, senddata->sga.srcID, c);
             return false;
         } else {
@@ -158,6 +158,7 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
             cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
         }
     } else {
+        std::cout << "helloq3" <<std::endl;
         auto result = performWrite(&data, senddata->sga.srcID).sendable(senddata->sga.srcID);
         auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
         auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,

@@ -10,9 +10,11 @@
 
 
 defs::GlobalAddress Node::Malloc(size_t size) {
-    auto buffer = malloc(size);
+    auto msize = size+ sizeof(defs::SaveData);
+    std::cout <<"malloc this size: "<< msize << std::endl;
+    auto buffer = malloc(msize);
     if (buffer) {
-        std::cout << buffer << std::endl;
+        std::cout <<"ptr: "<< buffer << std::endl;
         auto gaddr = defs::GlobalAddress{size, buffer, id};
         return gaddr;
     } else {
@@ -61,7 +63,6 @@ uint64_t Node::read(defs::GlobalAddress gaddr) {
         std::cout << "reading..." << std::endl;
         auto result = performRead(gaddr, id);
         setLock(gaddr.id, defs::LOCK_STATES::UNLOCKED);
-        std::cout << result->data << std::endl;
         return result->data;
     } else {
         return 0;
@@ -71,13 +72,18 @@ uint64_t Node::read(defs::GlobalAddress gaddr) {
 defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
     if (isLocal(gaddr)) {
         auto data = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
-        if (data->iscached < 0) {
+
+        if (data->iscached < 0 || data->iscached > 2) {
+            std::cout << data->iscached << std::endl;
             return nullptr;
         }
         return data;
     } else {
+        std::cout<< "not local" << std::endl;
         auto cacheItem = cache.getCacheItem(gaddr);
         if (cacheItem == nullptr) {
+            std::cout<< "not cached" << std::endl;
+
             auto port = defs::port;
             auto c = connectClientSocket(port);
 
@@ -92,6 +98,8 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
 
             return result;
         } else {
+            std::cout<< "cached" << std::endl;
+            std::cout << cacheItem->data << ", " << cacheItem->globalAddress.ptr << std::endl;
             return new defs::SaveData{cacheItem->data, defs::CACHE_DIRECTORY_STATE::SHARED, 0,
                                       std::vector<uint16_t>()};
         }
@@ -100,7 +108,6 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
 
 
 bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
-    std::cout << "locks" << std::endl;
     if (id == defs::locknode) {
         auto existing = locks.find(lockId);
 
@@ -134,21 +141,22 @@ bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
 
 defs::GlobalAddress Node::write(defs::Data *data) {
     auto result = defs::GlobalAddress{};
+    std::cout << data->data << ", " << data->size << std::endl;
+
     if (setLock(data->ga.id, defs::LOCK_STATES::EXCLUSIVE)) {
 
         if (isLocal(data->ga)) {
             auto d = reinterpret_cast<defs::SaveData *>(data->ga.ptr);
 
-            std::cout <<"getting cachedata for write"<< d->iscached << ", "<<d->sharerNodes.empty() << std::endl;
-
-            if (d->iscached >= 0 && !d->sharerNodes.empty()) {
+            if (d->iscached >= 0 && !d->sharerNodes.empty() && d->iscached < 3) {
                 broadcastInvalidations(d->sharerNodes, data->ga);
             }
 
-            auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED, id,
+            auto writtenData = new defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED, id,
                                               {}};
-            std::memcpy(data->ga.ptr, &writtenData, sizeof(writtenData));
+            std::memcpy(data->ga.ptr, writtenData, sizeof(defs::SaveData));
             result = data->ga;
+
         } else {
             result = performWrite(data, id);
         }
@@ -167,9 +175,11 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
-        auto ci = CacheItem{data->ga, defs::CACHE_DIRECTORY_STATE::EXCLUS, std::chrono::system_clock::now(),
+        auto ci = CacheItem{data->ga, data->data, std::chrono::system_clock::now(),
                             std::chrono::system_clock::now()};
         cache.alterCacheItem(ci,data->ga);
+        std::cout << ci.data << ", " << ci.globalAddress.ptr << std::endl;
+
         auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, c);
 
         std::cout << c.socket.get() << ", " << c.rcqp->getQPN() << std::endl;

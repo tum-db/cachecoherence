@@ -88,7 +88,7 @@ public:
         auto gadd = node->Malloc(sizeof(V));
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        auto data = new defs::Data(sizeof(V), static_cast<uint64_t >(value), gadd);
+        auto data = new defs::Data(sizeof(V), static_cast<uint64_t>(value), gadd);
         node->write(data);
     }
 
@@ -107,16 +107,13 @@ public:
         Elem *oldBucket = nullptr;
         while (bucket != nullptr) {
             if (bucket->key == key) {
-                std::cout << "now we delete" << std::endl;
                 if (oldBucket) {
                     oldBucket->next = bucket->next;
                 } else {
                     storage[b] = bucket->next;
                 }
-                std::cout << "bucket: "<< bucket->key << ", " << bucket->gaddr.size << ", " << bucket->next << std::endl;
                 node->Free(bucket->gaddr);
                 delete (bucket);
-                std::cout << "bucket: "<< storage[b]<< std::endl;
                 --amountElements;
                 return;
             }
