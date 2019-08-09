@@ -10,7 +10,6 @@
 #include <optional>
 #include <vector>
 #include <array>
-#include "HashBucket.h"
 #include "../src/Node.h"
 #include <iostream>
 #include <cmath>
@@ -21,7 +20,7 @@ const uint16_t ns[] = {2000, 3000, 4000};
 
 template<typename V>
 class HashTable {
-
+private:
     Node node;
 
     static constexpr uint32_t hash(uint32_t key) {
@@ -52,7 +51,8 @@ public:
      * Constructor
      */
 
-    HashTable() : node() {
+    HashTable() : node(2000) {
+        storage.resize(64);
         // buckets = new std::array<Buck, amountNodes>;
 //        uint32_t lb = 0;
 //        uint32_t ub = 0;
@@ -82,14 +82,83 @@ public:
      * @param key
      * @param value
      */
-    void insert(uint32_t key, V value);
+    void insert(uint32_t key, V value) {
+        uint32_t b = hashBucket(key);
+        auto gadd = node.Malloc(sizeof(V));
+        storage[b] = new Elem({key, gadd, storage[b]});
+        ++amountElements;
+        auto data = new defs::Data(sizeof(V), static_cast<uint64_t >(value), gadd);
+        node.write(data);
+    }
 
 
-    void erase(uint32_t key);
+/**
+    * remove element from HT
+    *
+    * used for remove
+    *
+    * @param key
+    */
 
-    std::optional<V> get(uint32_t key) const;
+    void erase(uint32_t key) {
+        uint32_t b = hashBucket(key);
+        Elem *bucket = storage[b];
+        Elem *oldbucket = nullptr;
+        node.Free(bucket->gaddr);
 
-    V &operator[](uint32_t key);
+    }
+
+/**
+    * get element from HT wrapped in optional
+    *
+    * used for const lookup
+    *
+    * @param key
+    * @return optional containing the element or nothing if not exists
+    */
+    std::optional<V> get(uint32_t key) const {
+        uint32_t b = hashBucket(key);
+        Elem *bucket = storage[b];
+        while (bucket != nullptr) {
+            if (bucket->key == key) {
+                auto value = node.read(bucket->gaddr);
+                auto result = reinterpret_cast<V *>(&value);
+                return *result;
+            }
+            bucket = bucket->next;
+        }
+        return std::nullopt;
+    }
+
+
+    /**
+    * get reference to existing HT element or insert new at key
+    *
+    * used for lookups, inserts, and editing the HT elements
+    *
+    * @param key
+    * @return reference to HT element
+    */
+    V &operator[](uint32_t key) {
+        uint32_t b = hashBucket(key);
+        Elem *bucket = storage[b];
+        while (bucket != nullptr) {
+            if (bucket->key == key) {
+                auto addr = bucket->gaddr;
+                uint64_t value = node.read(addr);
+                auto result = reinterpret_cast<V *>(&value);
+                return *result;
+            }
+            bucket = bucket->next;
+        }
+        auto gadd = node.Malloc(sizeof(V));
+        storage[b] = new Elem({key, gadd, storage[b]});
+        ++amountElements;
+        uint64_t value = node.read(gadd);
+        auto result = reinterpret_cast<V *>(&value);
+        return *result;
+
+    }
 
 
     /**
@@ -127,8 +196,14 @@ public:
      * empty the HT
      */
     void clear() {
+        std::cout << "going to clear" << std::endl;
+
         for (auto &b: storage) {
-            node.Free(b->gaddr);
+            while (b != nullptr) {
+                Elem *oldBucket = b;
+                b = oldBucket->next;
+                node.Free(oldBucket->gaddr);
+            }
         }
         amountElements = 0;
     }
