@@ -32,10 +32,15 @@ defs::GlobalAddress Node::Malloc(size_t size) {
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
+        auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
+
+        if (d->iscached >= 0 && !d->sharerNodes.empty()) {
+            broadcastInvalidations(d->sharerNodes,gaddr);
+        }
+
         free(gaddr.ptr);
         gaddr.ptr = nullptr;
         gaddr.size = 0;
-        std::cout << "Freed..." << std::endl;
         return gaddr;
     } else {
         auto port = defs::port;
@@ -53,8 +58,10 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
 
 uint64_t Node::read(defs::GlobalAddress gaddr) {
     if (setLock(gaddr.id, defs::LOCK_STATES::SHAREDLOCK)) {
+        std::cout << "reading..." << std::endl;
         auto result = performRead(gaddr, id);
         setLock(gaddr.id, defs::LOCK_STATES::UNLOCKED);
+        std::cout << result->data << std::endl;
         return result->data;
     } else {
         return 0;
@@ -93,6 +100,7 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
 
 
 bool Node::setLock(uint16_t lockId, defs::LOCK_STATES state) {
+    std::cout << "locks" << std::endl;
     if (id == defs::locknode) {
         auto existing = locks.find(lockId);
 

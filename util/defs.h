@@ -102,7 +102,7 @@ namespace defs {
         }
     };
 
-    struct SaveData {
+    struct __attribute__ ((packed)) SaveData {
         uint64_t data;
         CACHE_DIRECTORY_STATE iscached;
         uint16_t ownerNode;

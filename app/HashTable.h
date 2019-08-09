@@ -21,7 +21,7 @@ const uint16_t ns[] = {2000, 3000, 4000};
 template<typename V>
 class HashTable {
 private:
-    Node node;
+    Node *node;
 
     static constexpr uint32_t hash(uint32_t key) {
         key = (key ^ 61) ^ (key >> 16);
@@ -51,7 +51,8 @@ public:
      * Constructor
      */
 
-    HashTable() : node(2000) {
+    explicit HashTable(Node *n) {
+        node = n;
         storage.resize(64);
         // buckets = new std::array<Buck, amountNodes>;
 //        uint32_t lb = 0;
@@ -84,11 +85,11 @@ public:
      */
     void insert(uint32_t key, V value) {
         uint32_t b = hashBucket(key);
-        auto gadd = node.Malloc(sizeof(V));
+        auto gadd = node->Malloc(sizeof(V));
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         auto data = new defs::Data(sizeof(V), static_cast<uint64_t >(value), gadd);
-        node.write(data);
+        node->write(data);
     }
 
 
@@ -103,9 +104,25 @@ public:
     void erase(uint32_t key) {
         uint32_t b = hashBucket(key);
         Elem *bucket = storage[b];
-        Elem *oldbucket = nullptr;
-        node.Free(bucket->gaddr);
-
+        Elem *oldBucket = nullptr;
+        while (bucket != nullptr) {
+            if (bucket->key == key) {
+                std::cout << "now we delete" << std::endl;
+                if (oldBucket) {
+                    oldBucket->next = bucket->next;
+                } else {
+                    storage[b] = bucket->next;
+                }
+                std::cout << "bucket: "<< bucket->key << ", " << bucket->gaddr.size << ", " << bucket->next << std::endl;
+                node->Free(bucket->gaddr);
+                delete (bucket);
+                std::cout << "bucket: "<< storage[b]<< std::endl;
+                --amountElements;
+                return;
+            }
+            oldBucket = bucket;
+            bucket = bucket->next;
+        }
     }
 
 /**
@@ -116,12 +133,12 @@ public:
     * @param key
     * @return optional containing the element or nothing if not exists
     */
-    std::optional<V> get(uint32_t key) const {
+    std::optional<V> get(uint32_t key) {
         uint32_t b = hashBucket(key);
         Elem *bucket = storage[b];
         while (bucket != nullptr) {
             if (bucket->key == key) {
-                auto value = node.read(bucket->gaddr);
+                auto value = node->read(bucket->gaddr);
                 auto result = reinterpret_cast<V *>(&value);
                 return *result;
             }
@@ -145,16 +162,16 @@ public:
         while (bucket != nullptr) {
             if (bucket->key == key) {
                 auto addr = bucket->gaddr;
-                uint64_t value = node.read(addr);
+                uint64_t value = node->read(addr);
                 auto result = reinterpret_cast<V *>(&value);
                 return *result;
             }
             bucket = bucket->next;
         }
-        auto gadd = node.Malloc(sizeof(V));
+        auto gadd = node->Malloc(sizeof(V));
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        uint64_t value = node.read(gadd);
+        uint64_t value = node->read(gadd);
         auto result = reinterpret_cast<V *>(&value);
         return *result;
 
@@ -169,7 +186,7 @@ public:
      * @param key
      * @return 0 if not contained, 1 if contained
      */
-    uint64_t count(uint32_t key) const {
+    uint64_t count(uint32_t key) {
         return get(key).has_value();
     }
 
@@ -196,13 +213,12 @@ public:
      * empty the HT
      */
     void clear() {
-        std::cout << "going to clear" << std::endl;
 
         for (auto &b: storage) {
             while (b != nullptr) {
                 Elem *oldBucket = b;
                 b = oldBucket->next;
-                node.Free(oldBucket->gaddr);
+                node->Free(oldBucket->gaddr);
             }
         }
         amountElements = 0;

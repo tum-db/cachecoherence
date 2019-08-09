@@ -65,8 +65,6 @@ public:
 
     explicit Node();
 
-    Node(uint16_t id);
-
     Connection connectClientSocket(uint16_t port);
 
     void closeClientSocket(Connection &c);
