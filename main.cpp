@@ -1,4 +1,5 @@
 #include <iostream>
+#include <zconf.h>
 #include "rdma/Network.hpp"
 #include "src/Node.h"
 #include "app/HashTable.h"

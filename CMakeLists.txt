@@ -37,3 +37,12 @@ target_link_libraries(main medmm)
 target_link_libraries(medmm stdc++fs)
 
 target_link_libraries(medmm ${LINK_LIBRARIES})
+
+file(GLOB tests "test/*test.cpp")
+foreach (test ${tests})
+    get_filename_component(testName ${test} NAME_WE)
+    add_executable(${testName} ${test})
+    target_link_libraries(${testName} medmm)
+    target_include_directories(${testName} PRIVATE .)
+    add_test(${testName} ${testName})
+endforeach ()
