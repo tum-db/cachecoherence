@@ -38,7 +38,7 @@ target_link_libraries(medmm stdc++fs)
 
 target_link_libraries(medmm ${LINK_LIBRARIES})
 
-file(GLOB tests "test/*test.cpp")
+file(GLOB tests "test/*.cpp")
 foreach (test ${tests})
     get_filename_component(testName ${test} NAME_WE)
     add_executable(${testName} ${test})

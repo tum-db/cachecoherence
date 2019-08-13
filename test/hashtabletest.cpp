@@ -7,6 +7,7 @@
 #include <iostream>
 #include <src/Node.h>
 #include <zconf.h>
+#include <wait.h>
 #include "app/HashTable.h"
 
 
@@ -50,4 +51,21 @@ int main(int, const char **args) {
         std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
 
     }
+    int serverStatus = 1;
+    int clientStatus = 1;
+    size_t secs = 0;
+    for (; secs < TIMEOUT_IN_SECONDS; ++secs, sleep(1)) {
+        auto serverTerminated = waitpid(server, &serverStatus, WNOHANG) != 0;
+        auto clientTerminated = waitpid(client, &clientStatus, WNOHANG) != 0;
+        if (serverTerminated && clientTerminated) {
+            break;
+        }
+    }
+    if (secs >= TIMEOUT_IN_SECONDS) {
+        std::cerr << "timeout" << std::endl;
+        kill(server, SIGTERM);
+        kill(client, SIGTERM);
+        return 1;
+    }
+    return serverStatus + clientStatus;
 }
