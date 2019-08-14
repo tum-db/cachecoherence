@@ -1,4 +1,5 @@
-#include "moderndbs/buffer_manager.h"
+#include "buffer_manager.h"
+
 #include <cassert>
 #include <cstring>
 #include <memory>
@@ -70,7 +71,7 @@ state, so it is simply returned.
 When fix_page() is called with a page id that is currently not loaded into
 memory, another page must be evicted. For this the queues are scanned for a
 page that is unused (i.e. page.num_users == 0) and is in the LOADED state. When
-it is not dirty, no I/O msut be done to write the page to disk, so the page is
+it is not dirty, no I/O must be done to write the page to disk, so the page is
 removed directly without releasing the directory latch. When it is dirty, its
 state is set to EVICTING. Then, its data is copied to a temporary buffer that
 can then be written to disk. This is done so that if the eviction is stopped by
@@ -112,9 +113,11 @@ void BufferFrame::unlock() {
 }
 
 
-BufferManager::BufferManager(size_t page_size, size_t page_count)
+BufferManager::BufferManager(size_t page_size, size_t page_count, Node *n)
 : page_size(page_size), page_count(page_count),
-  loaded_pages{std::make_unique<char[]>(page_count * page_size)} {}
+  loaded_pages{std::make_unique<char[]>(page_count * page_size)} {
+    node = n;
+}
 
 
 BufferManager::~BufferManager() {

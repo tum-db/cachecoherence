@@ -123,7 +123,8 @@ namespace defs {
         WRITE = 4,
         LOCKS = 5,
         RESET = 6,
-        INVALIDATE = 7
+        INVALIDATE = 7,
+        FILE = 8
     };
 
 
@@ -132,6 +133,10 @@ namespace defs {
         LOCK_STATES state;
     };
 
+    struct __attribute__ ((packed)) FileInfo{
+      size_t size;
+      const char *filename;
+    };
 
     ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>
     createWriteWithImm(ibv::memoryregion::Slice slice,

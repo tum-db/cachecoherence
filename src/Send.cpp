@@ -4,13 +4,15 @@
 
 #include <chrono>
 #include <thread>
+#include <zconf.h>
 #include "Node.h"
 #include "../util/defs.h"
 #include "../util/socket/tcp.h"
 
 
 Connection Node::connectClientSocket(uint16_t port) {
-    auto qp = std::make_unique<rdma::RcQueuePair>(rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
+    auto qp = std::make_unique<rdma::RcQueuePair>(
+            rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
     auto c = Connection{std::move(qp), l5::util::Socket::create()};
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};
     for (int i = 0;; ++i) {
@@ -135,10 +137,61 @@ void Node::broadcastInvalidations(std::vector<uint16_t> nodes,
                                   defs::GlobalAddress gaddr) {
     for (const auto &n: nodes) {
         std::cout << "invalidation of node " << n << std::endl;
-        auto connection = connectClientSocket(n);
-        sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, connection);
-        closeClientSocket(connection);
+        auto invalidateClient = fork();
+        if (invalidateClient == 0) {
+            auto connection = connectClientSocket(n);
+            sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, connection);
+            closeClientSocket(connection);
+        }
 
     }
     std::cout << "done invaldating" << std::endl;
 }
+
+
+void Node::sendFile(Connection &c, moderndbs::PosixFile &file) {
+    auto fileinfo = defs::FileInfo{file.size(), "test"};
+    auto &cq = network.getSharedCompletionQueue();
+    auto sendmr = network.registerMr(&fileinfo, sizeof(defs::FileInfo), {});
+    auto recvbuf = malloc(sizeof(bool));
+    auto recvmr = network.registerMr(recvbuf, sizeof(defs::SendGlobalAddr),
+                                     {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
+    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
+                                                     recvmr->getRkey()};
+
+    l5::util::tcp::write(c.socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c.socket, &remoteMr, sizeof(remoteMr));
+
+    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, defs::IMMDATA::FILE);
+    c.rcqp->postWorkRequest(write);
+    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
+    auto recv = ibv::workrequest::Recv{};
+    recv.setSge(nullptr, 0);
+    c.rcqp->postRecvRequest(recv);
+    cq.pollRecvWorkCompletionBlocking();
+    size_t offset = 0;
+    auto block = std::make_unique<char[]>(file.size());
+    while (offset < file.size()) {
+
+        file.read_block(offset, defs::BIGBADBUFFER_SIZE, block.get());
+        offset = offset + defs::BIGBADBUFFER_SIZE;
+
+        sendmr = network.registerMr(&block, defs::BIGBADBUFFER_SIZE, {});
+        recvbuf = malloc(sizeof(size_t));
+        recvmr = network.registerMr(recvbuf, sizeof(defs::SendGlobalAddr),
+                                         {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
+        write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr,
+                                         static_cast<defs::IMMDATA>(sizeof(block)));
+        c.rcqp->postWorkRequest(write);
+        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
+        recv = ibv::workrequest::Recv{};
+        recv.setSge(nullptr, 0);
+        c.rcqp->postRecvRequest(recv);
+        cq.pollRecvWorkCompletionBlocking();
+    }
+
+
+}
+

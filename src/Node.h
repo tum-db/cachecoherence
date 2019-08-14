@@ -11,8 +11,10 @@
 #include "../util/defs.h"
 #include "Cache.h"
 #include "Connection.h"
+#include "../buffermanager/posix_file.h"
 #include <cstddef>
 #include <unordered_map>
+
 
 class Node {
 private:
@@ -43,7 +45,8 @@ private:
     void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair &cq,
                      Connection &c);
 
-    bool setLock(uint16_t lockId, defs::LOCK_STATES state);
+    void handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                    rdma::CompletionQueuePair &cq, Connection &c);
 
     bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection &c);
 
@@ -73,6 +76,7 @@ public:
 
     defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
+    bool setLock(uint16_t lockId, defs::LOCK_STATES state);
 
     void connectAndReceive(uint16_t port);
 
@@ -83,6 +87,10 @@ public:
     defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 
     defs::GlobalAddress write(defs::Data *data);
+
+    defs::GlobalAddress FprintF(defs::GlobalAddress gaddr, defs::Data *data, Connection &c);
+    void sendFile(Connection &c, moderndbs::PosixFile &file);
+
 
     uint64_t read(defs::GlobalAddress gaddr);
 

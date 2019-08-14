@@ -10,7 +10,9 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include <vector>
-#include "moderndbs/file.h"
+#include "file.h"
+#include "../src/Node.h"
+#include "../util/defs.h"
 
 
 namespace moderndbs {
@@ -76,6 +78,8 @@ private:
         explicit SegmentFile(std::unique_ptr<File> file) : file{std::move(file)} {}
     };
 
+    Node *node;
+
     size_t page_size;
     size_t page_count;
 
@@ -121,7 +125,7 @@ public:
     /// @param[in] page_size  Size in bytes that all pages will have.
     /// @param[in] page_count Maximum number of pages that should reside in
     //                        memory at the same time.
-    BufferManager(size_t page_size, size_t page_count);
+    BufferManager(size_t page_size, size_t page_count, Node *n);
 
     /// Destructor. Writes all dirty pages to disk.
     ~BufferManager();

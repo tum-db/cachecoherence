@@ -1,25 +1,29 @@
 #include <iostream>
-#include "rdma/Network.hpp"
+#include <zconf.h>
+#include <wait.h>
 #include "src/Node.h"
 #include "app/HashTable.h"
 
 
 int main() {
-    auto node = Node();
+    static size_t TIMEOUT_IN_SECONDS = 5;
 
-
-    std::cout << "Server or Client? (0 = server, 1 = client): ";
-    uint16_t servOcli; // 0 = server, 1 = client
-    std::cin >> servOcli;
-
-    if (servOcli == 0) {
-        node.setID(3000);
-        while(true) {
-            node.connectAndReceive(node.getID());
+    const auto server = fork();
+    if (server == 0) {
+        auto servernode = Node();
+        servernode.setID(3000);
+        while (true) {
+            servernode.connectAndReceive(servernode.getID());
         }
-    } else if (servOcli == 1) {
-        node.setID(2000);
-        HashTable<bool> h = HashTable<bool>(&node);
+    }
+    const auto client = fork();
+    if (client == 0) {
+
+
+        auto clientnode = Node();
+        clientnode.setID(2000);
+
+        HashTable<bool> h = HashTable<bool>(&clientnode);
 
         h.insert(4,false);
         std::cout << "bool should be 0: " << h[4] << std::endl;
@@ -38,39 +42,57 @@ int main() {
         std::cout << "count should be 0: " << h.count(5) << std::endl;
         std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
 
-
-
-        auto conn = node.connectClientSocket(3000);
+        auto conn = clientnode.connectClientSocket(3000);
         uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
         size_t size = sizeof(d);
+        auto f = moderndbs::PosixFile("test", moderndbs::File::WRITE);
+        clientnode.sendFile(conn, f);
+
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0);
-        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC, conn);
-        node.closeClientSocket(conn);
+        auto recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn);
+        clientnode.closeClientSocket(conn);
         auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
         std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
         auto data = defs::Data(sizeof(uint64_t), d, *test);
         std::cout << "Trying to Write, data: " << d << std::endl;
-        node.write(&data);
+        clientnode.write(&data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
-        auto result = node.read(*test);
+        auto result = clientnode.read(*test);
         std::cout << "Done. Result: ";
         std::cout << reinterpret_cast<char *>(result) << ", and now reading from cache"<<std::endl;
-        auto result1 = node.read(*test);
+        auto result1 = clientnode.read(*test);
         std::cout << "Done. Result: "<< reinterpret_cast<char *>(result1) << ", and now changing to 1337"<<std::endl;
         auto newint = uint64_t(1337);
         auto newdata = new defs::Data{sizeof(uint64_t), newint, *test};
-        node.write(newdata);
-        auto result2 = node.read(*test);
+        clientnode.write(newdata);
+        auto result2 = clientnode.read(*test);
         std::cout << "Done. Result: "<< result2 << std::endl;
         std::cout << "Now the first connection is closed. new connection. "<< std::endl;
         std::cout << "Trying to read with the new connection "<< std::endl;
-        auto result3 = node.read(*test);
+        auto result3 = clientnode.read(*test);
         std::cout << "Done. Result: "<< result3 << ", now we free the memory"<< std::endl;
-        node.Free(*test);
+        clientnode.Free(*test);
         std::cout << "Done freeing. " << std::endl;
-    } else {
-        std::cout << "This was no valid Number!" << std::endl;
+
     }
-    return 0;
+    int serverStatus = 1;
+    int clientStatus = 1;
+    size_t secs = 0;
+    for (; secs < TIMEOUT_IN_SECONDS; ++secs, sleep(1)) {
+        auto serverTerminated = waitpid(server, &serverStatus, WNOHANG) != 0;
+        auto clientTerminated = waitpid(client, &clientStatus, WNOHANG) != 0;
+        if (serverTerminated && clientTerminated) {
+            break;
+        }
+    }
+
+    if (secs >= TIMEOUT_IN_SECONDS) {
+        std::cerr << "timeout" << std::endl;
+        kill(server, SIGTERM);
+        kill(client, SIGTERM);
+        return 1;
+    }
+    return serverStatus + clientStatus;
+
 }

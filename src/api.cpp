@@ -7,8 +7,13 @@
 #include <stdlib.h>
 #include <cstdio>
 #include "../util/defs.h"
+#include "../buffermanager/buffer_manager.h"
 
-
+/**
+ * own malloc, allocates memory in the distributed system
+ * @param size = size that should be allocated
+ * @return GlobalAddress of allocated Memory
+ */
 defs::GlobalAddress Node::Malloc(size_t size) {
     auto msize = size+ sizeof(defs::SaveData);
     std::cout <<"malloc this size: "<< msize << std::endl;
@@ -189,3 +194,13 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
     }
 }
 
+
+defs::GlobalAddress Node::FprintF(defs::GlobalAddress gaddr, defs::Data *data, Connection &c) {
+    if(isLocal(gaddr)){
+        moderndbs::BufferManager bm = moderndbs::BufferManager(1024, 10, this);
+
+    }
+
+
+
+}
