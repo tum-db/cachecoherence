@@ -10,7 +10,6 @@
 
 namespace defs {
 
-
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
@@ -22,6 +21,17 @@ namespace defs {
         UNSHARED = 0,
         SHARED = 1,
         EXCLUS = 2
+    };
+
+    struct RDNNBR {
+        uint16_t rdnnbr = 0;
+        const char * name;
+
+        RDNNBR() {
+            rdnnbr++;
+            std::string s = std::to_string(rdnnbr);
+            name = s.c_str();
+        }
     };
 
 
@@ -133,13 +143,14 @@ namespace defs {
         LOCK_STATES state;
     };
 
-    struct __attribute__ ((packed)) FileInfo{
-      size_t size;
-      const char *filename;
+    struct __attribute__ ((packed)) FileInfo {
+        size_t size;
+        size_t blocksize;
     };
 
     ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>
     createWriteWithImm(ibv::memoryregion::Slice slice,
                        ibv::memoryregion::RemoteAddress remoteMr, IMMDATA immData);
+
 }
 #endif //MEDMM_DEFS_H

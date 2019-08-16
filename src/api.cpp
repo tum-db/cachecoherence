@@ -15,18 +15,17 @@
  * @return GlobalAddress of allocated Memory
  */
 defs::GlobalAddress Node::Malloc(size_t size) {
-    auto msize = size+ sizeof(defs::SaveData);
-    std::cout <<"malloc this size: "<< msize << std::endl;
+    auto msize = size + sizeof(defs::SaveData);
     auto buffer = malloc(msize);
     if (buffer) {
-        std::cout <<"ptr: "<< buffer << std::endl;
         auto gaddr = defs::GlobalAddress{size, buffer, id};
         return gaddr;
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
 
-        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0}.sendable(id), defs::IMMDATA::MALLOC,
+        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0}.sendable(id),
+                               defs::IMMDATA::MALLOC,
                                c);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
 
@@ -39,13 +38,24 @@ defs::GlobalAddress Node::Malloc(size_t size) {
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
+        std::cout << "test" << std::endl;
+
         auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
 
-        if (d->iscached >= 0 && !d->sharerNodes.empty()) {
-            broadcastInvalidations(d->sharerNodes,gaddr);
+
+        if (d->iscached >= defs::CACHE_DIRECTORY_STATE::UNSHARED &&
+            d->iscached <= defs::CACHE_DIRECTORY_STATE::SHARED &&
+            !d->sharerNodes.empty()) {
+            std::cout << d->data << ", " << d->iscached << ", " << d->ownerNode << ", "
+                      << d->sharerNodes[0] << std::endl;
+            std::cout << "test2" << std::endl;
+
+            broadcastInvalidations(d->sharerNodes, gaddr);
         }
 
         free(gaddr.ptr);
+        std::cout << "test3" << std::endl;
+
         gaddr.ptr = nullptr;
         gaddr.size = 0;
         return gaddr;
@@ -84,10 +94,10 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
         }
         return data;
     } else {
-        std::cout<< "not local" << std::endl;
+        std::cout << "not local" << std::endl;
         auto cacheItem = cache.getCacheItem(gaddr);
         if (cacheItem == nullptr) {
-            std::cout<< "not cached" << std::endl;
+            std::cout << "not cached" << std::endl;
 
             auto port = defs::port;
             auto c = connectClientSocket(port);
@@ -103,7 +113,7 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
 
             return result;
         } else {
-            std::cout<< "cached" << std::endl;
+            std::cout << "cached" << std::endl;
             std::cout << cacheItem->data << ", " << cacheItem->globalAddress.ptr << std::endl;
             return new defs::SaveData{cacheItem->data, defs::CACHE_DIRECTORY_STATE::SHARED, 0,
                                       std::vector<uint16_t>()};
@@ -157,15 +167,15 @@ defs::GlobalAddress Node::write(defs::Data *data) {
                 broadcastInvalidations(d->sharerNodes, data->ga);
             }
 
-            auto writtenData = new defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED, id,
-                                              {}};
+            auto writtenData = new defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED,
+                                                  id,
+                                                  {}};
             std::memcpy(data->ga.ptr, writtenData, sizeof(defs::SaveData));
             result = data->ga;
 
         } else {
             result = performWrite(data, id);
         }
-
         setLock(data->ga.id, defs::LOCK_STATES::UNLOCKED);
     }
     return result;
@@ -174,7 +184,8 @@ defs::GlobalAddress Node::write(defs::Data *data) {
 
 defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
     if (isLocal(data->ga)) {
-        auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS, srcID, {}};
+        auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS, srcID,
+                                          {}};
         std::memcpy(data->ga.ptr, &writtenData, sizeof(writtenData));
         return data->ga;
     } else {
@@ -182,7 +193,7 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
         auto c = connectClientSocket(port);
         auto ci = CacheItem{data->ga, data->data, std::chrono::system_clock::now(),
                             std::chrono::system_clock::now()};
-        cache.alterCacheItem(ci,data->ga);
+        cache.alterCacheItem(ci, data->ga);
         std::cout << ci.data << ", " << ci.globalAddress.ptr << std::endl;
 
         auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, c);
@@ -195,12 +206,10 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
 }
 
 
-defs::GlobalAddress Node::FprintF(defs::GlobalAddress gaddr, defs::Data *data, Connection &c) {
-    if(isLocal(gaddr)){
-        moderndbs::BufferManager bm = moderndbs::BufferManager(1024, 10, this);
-
-    }
-
-
-
+void Node::FprintF(MaFile f) {
+    auto port = defs::port;
+    auto c = connectClientSocket(port);
+    sendFile(c, f);
+    closeClientSocket(c);
+    std::cout << "sent file" << std::endl;
 }

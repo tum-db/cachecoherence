@@ -11,7 +11,7 @@
 #include "../util/defs.h"
 #include "Cache.h"
 #include "Connection.h"
-#include "../buffermanager/posix_file.h"
+#include "../buffermanager/MaFile.h"
 #include <cstddef>
 #include <unordered_map>
 
@@ -63,6 +63,7 @@ private:
 
     void broadcastInvalidations(std::vector<uint16_t> nodes, defs::GlobalAddress gaddr);
 
+    void sendFile(Connection &c, MaFile &file);
 
 public:
 
@@ -88,9 +89,7 @@ public:
 
     defs::GlobalAddress write(defs::Data *data);
 
-    defs::GlobalAddress FprintF(defs::GlobalAddress gaddr, defs::Data *data, Connection &c);
-    void sendFile(Connection &c, moderndbs::PosixFile &file);
-
+    void FprintF(MaFile f);
 
     uint64_t read(defs::GlobalAddress gaddr);
 

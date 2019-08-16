@@ -7,7 +7,7 @@
 
 ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>
 defs::createWriteWithImm(ibv::memoryregion::Slice slice,
-                   ibv::memoryregion::RemoteAddress remoteMr, IMMDATA immData) {
+                         ibv::memoryregion::RemoteAddress remoteMr, IMMDATA immData) {
     auto write = ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>{};
     write.setLocalAddress(slice);
     write.setInline();

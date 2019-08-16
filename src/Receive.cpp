@@ -15,62 +15,69 @@ bool Node::receive(Connection &c) {
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
-    l5::util::tcp::write(c.socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(c.socket, &remoteMr, sizeof(remoteMr));
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
+
+    l5::util::tcp::write(c.socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(c.socket, &remoteMr, sizeof(remoteMr));
+
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto immData = wc.getImmData();
-    //std::cout << "got this immdata: " << immData << std::endl;
+
+    std::cout << "got this immdata: " << immData << std::endl;
+    auto res = true;
     switch (immData) {
         case defs::IMMDATA::MALLOC:  //immdata = 1, if it comes from another server
         {
             handleAllocation(recvbuf, remoteMr, cq, c);
-            return true;
+            break;
         }
         case defs::IMMDATA::READ: //immdata = 2, if it is a read
         {
             handleRead(recvbuf, remoteMr, cq, c);
-            return true;
+            break;
         }
         case defs::IMMDATA::FREE://immdata = 3, it should be freed
         {
             handleFree(recvbuf, remoteMr, cq, c);
-            return true;
+            break;
         }
         case defs::IMMDATA::WRITE:  //immdata = 4, write
         {
-
-            auto res = handleWrite(recvbuf, remoteMr, cq, c);
+            res = handleWrite(recvbuf, remoteMr, cq, c);
             std::cout << "result of write: " << res << std::endl;
-            return res;
+            break;
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
         {
             handleLocks(recvbuf, remoteMr, cq, c);
-            return true;
+            break;
         }
         case defs::IMMDATA::RESET: //immdata = 6, reset state
         {
             handleReset(remoteMr, cq, c);
-            return false;
+            res = false;
+            break;
         }
         case defs::IMMDATA::INVALIDATE: {
             handleInvalidation(recvbuf, remoteMr, cq, c);
-            return true;
+            break;
         }
         case defs::IMMDATA::FILE: {
             handleFile(recvbuf, remoteMr, cq, c);
-            return true;
+            free(recvbuf);
+            break;
         }
         default: {
-            return true;
+            break;
         }
     }
+    return res;
 }
 
 void Node::connectAndReceive(uint16_t port) {
+
     auto soc = l5::util::Socket::create();
     auto qp = std::make_unique<rdma::RcQueuePair>(
             rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
@@ -78,13 +85,15 @@ void Node::connectAndReceive(uint16_t port) {
                         l5::util::Socket::create()};
     l5::util::tcp::bind(soc, port);
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};
+    std::cout << "now listening... " << std::endl;
     l5::util::tcp::listen(soc);
-    std::cout << "now listening... ";
     c.socket = l5::util::tcp::accept(soc);
-    soc.close();
     std::cout << "and accepted" << std::endl;
+    soc.close();
+
     l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
     l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
+
     c.rcqp->connect(remoteAddr);
     bool connected = true;
     while (connected) {
@@ -222,27 +231,42 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
 
 void Node::handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                       rdma::CompletionQueuePair &cq, Connection &c) {
-    auto fileinfo = reinterpret_cast<defs::FileInfo *>(recvbuf);
-    auto file = moderndbs::File::open_file(fileinfo->filename, moderndbs::File::WRITE);
-    file->resize(fileinfo->size);
+    auto fitmp = reinterpret_cast<defs::FileInfo *>(recvbuf);
+    auto fileinfo = new defs::FileInfo(*fitmp);
+    std::cout << fileinfo->size << ", " << fileinfo->blocksize << std::endl;
+
+    auto file = MaFile("13223", moderndbs::File::WRITE);
     auto ok = true;
     auto sendmr = network.registerMr(&ok, sizeof(bool), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
+    const char *block;
+    size_t offset = 0;
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    const char *data;
-    size_t offset = 0;
+    std::cout << "now starting to receive file" << std::endl;
+
     while (offset < fileinfo->size) {
         auto recv = ibv::workrequest::Recv{};
         recv.setSge(nullptr, 0);
         c.rcqp->postRecvRequest(recv);
         auto wc = cq.pollRecvWorkCompletionBlocking();
         auto immData = wc.getImmData();
-        offset = offset +immData;
-        data = reinterpret_cast<char *>(recvbuf);
-        file->write_block(data, offset, immData);
-        write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
+        try {
+            auto data = reinterpret_cast<uint64_t *>(recvbuf);
+            block = reinterpret_cast<char *>(data);
+
+            file.write_block(block, offset, immData);
+        } catch (std::exception &e) {
+            ok = false;
+            std::cout << "not sending file done" << std::endl;
+
+        }
         c.rcqp->postWorkRequest(write);
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+        offset = offset + immData;
     }
+    file.resize(fileinfo->size);
+
+    std::cout << "receiving file done" << std::endl;
+    file.close();
 }
