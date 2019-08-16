@@ -29,6 +29,7 @@ SET(LINK_LIBRARIES
         )
 
 include_directories(include/libibverbscpp)
+include_directories(include/perfevent)
 
 add_library(medmm STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
 
