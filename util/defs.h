@@ -140,7 +140,8 @@ namespace defs {
         LOCKS = 5,
         RESET = 6,
         INVALIDATE = 7,
-        FILE = 8
+        FILE = 8,
+        MALLOCFILE = 9
     };
 
 

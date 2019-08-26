@@ -85,7 +85,7 @@ public:
      */
     void insert(uint32_t key, V value) {
         uint32_t b = hashBucket(key);
-        auto gadd = node->Malloc(sizeof(V));
+        auto gadd = node->Malloc(sizeof(V), node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         auto data = new defs::Data(sizeof(V), static_cast<uint64_t>(value), gadd);
@@ -165,7 +165,7 @@ public:
             }
             bucket = bucket->next;
         }
-        auto gadd = node->Malloc(sizeof(V));
+        auto gadd = node->Malloc(sizeof(V), node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         uint64_t value = node->read(gadd);

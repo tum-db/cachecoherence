@@ -192,17 +192,17 @@ void Node::sendFile(Connection &c, MaFile &file) {
         std::vector<char> better_data;
         better_data.resize(blocksize);
 
-        char* block = &better_data[0];
+        char *block = &better_data[0];
 
         while (offset < file.size()) {
             auto sizetoread =
                     (file.size() - offset) > blocksize ? blocksize : (file.size() - offset);
             file.read_block(offset, sizetoread, block);
             offset = offset + sizetoread;
-        //    std::cout << "blocksize: " << blocksize << ", block: " << block << std::endl;
+            //    std::cout << "blocksize: " << blocksize << ", block: " << block << std::endl;
             auto data = reinterpret_cast<uint64_t *>(block);
             sendmr = network.registerMr(data, sizeof(block), {ibv::AccessFlag::LOCAL_WRITE,
-                                                            ibv::AccessFlag::REMOTE_WRITE});
+                                                              ibv::AccessFlag::REMOTE_WRITE});
             write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr,
                                              static_cast<defs::IMMDATA>(sizetoread));
             c.rcqp->postWorkRequest(write);

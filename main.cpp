@@ -113,7 +113,7 @@ int main() {
         }
     } else if (servOcli == 1) {
         node.setID(2000);
-        /*  HashTable<bool> h = HashTable<bool>(&node);
+          HashTable<bool> h = HashTable<bool>(&node);
 
           h.insert(4,false);
           std::cout << "bool should be 0: " << h[4] << std::endl;
@@ -134,7 +134,7 @@ int main() {
 
 
 
-  */
+
 
         uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
         size_t size = sizeof(d);
@@ -155,7 +155,7 @@ int main() {
 
         std::cout << "Trying to Malloc" << std::endl;
 
-        auto test2 = node.Malloc(size);
+        auto test2 = node.Malloc(size,node.getID());
 
         std::cout << "Got second GAddr: " << test2.id << ", " << test2.size << ", " << test2.ptr
                   << std::endl;
@@ -190,8 +190,8 @@ int main() {
         std::cout << "Done freeing. " << std::endl;
 
         std::cout << "Trying to send File" << std::endl;
-        auto f = MaFile("test", moderndbs::File::READ);
-        node.FprintF(f);
+        // auto f = MaFile("test", moderndbs::File::READ);
+      //  node.FprintF(f);
 
     } else {
         std::cout << "This was no valid Number!" << std::endl;

@@ -14,24 +14,51 @@
  * @param size = size that should be allocated
  * @return GlobalAddress of allocated Memory
  */
-defs::GlobalAddress Node::Malloc(size_t size) {
+defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
+
     auto msize = size + sizeof(defs::SaveData);
     auto buffer = malloc(msize);
     if (buffer) {
-        auto gaddr = defs::GlobalAddress{size, buffer, id, 0};
+        auto gaddr = defs::GlobalAddress{size, buffer, id, false};
         return gaddr;
     } else {
+        if (srcID != id) {
+            return defs::GlobalAddress{size, nullptr, 0, true};
+        }
         auto port = defs::port;
         auto c = connectClientSocket(port);
 
-        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0,0}.sendable(id),
+        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0, false}.sendable(srcID),
                                defs::IMMDATA::MALLOC,
                                c);
+
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
 
-        c.socket.close();
-        c.rcqp->setToResetState();
-        return defs::GlobalAddress(*sga);
+
+        if (sga->id == 0 && sga->isFile) {
+            auto filename = getNextFileName();
+            auto nf = MaFile(filename, MaFile::Mode::WRITE);
+            if(nf.enough_space(0,size)){
+                c.socket.close();
+                c.rcqp->setToResetState();
+                return defs::GlobalAddress(sga->size, filename, id, true);
+            } else {
+                auto result = sendAddress(defs::GlobalAddress{size, nullptr, 0, true}.sendable(srcID),
+                                          defs::IMMDATA::MALLOCFILE,
+                                          c);
+
+                sga =  reinterpret_cast<defs::SendGlobalAddr *>(result);
+                if(sga->size != size){
+                    throw std::runtime_error("No more free memory!");
+
+                }
+            }
+
+        }
+            c.socket.close();
+            c.rcqp->setToResetState();
+            return defs::GlobalAddress(*sga);
+
     }
 }
 
@@ -206,19 +233,39 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
 }
 
 
-void Node::FprintF(MaFile f) {
-//    if(gaddr.ptr != nullptr){
-//        if(isLocal(gaddr)){
-//
-//        }
-//    }
-    auto port = defs::port;
-    auto c = connectClientSocket(port);
-    sendFile(c, f);
-    closeClientSocket(c);
-    std::cout << "sent file" << std::endl;
+void Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size) {
+    if(!gaddr.isFile){
+        return;
+    }
+    if(isLocal(gaddr)) {
+        auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::WRITE);
+        f.write_block(data, gaddr.size, size);
+    } else {
+        auto port = defs::port;
+        auto c = connectClientSocket(port);
+        auto senddata = defs::Data(size, *reinterpret_cast<uint64_t *>(data), gaddr).sendable(id);
+        auto ga = sendData(senddata, defs::IMMDATA::WRITE, c);
+        closeClientSocket(c);
+    }
+
 }
 
-void Node::FreadF(){
+char * Node::FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset) {
+    if(!gaddr.isFile){
+        return nullptr;
+    }
+    std::vector<char> block;
+    block.resize(size);
 
+    char *result = &block[0];
+    if(isLocal(gaddr)) {
+        auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::READ);
+        f.read_block(offset, size, result);
+    } else {
+        auto port = defs::port;
+        auto c = connectClientSocket(port);
+     // TODO: method for reading remote
+        closeClientSocket(c);
+    }
+    return result;
 }

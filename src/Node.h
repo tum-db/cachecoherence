@@ -32,6 +32,9 @@ private:
     void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair &cq, Connection &c);
 
+    void handleMallocFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                          rdma::CompletionQueuePair &cq, Connection &c);
+
     void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
@@ -51,6 +54,7 @@ private:
                     rdma::CompletionQueuePair &cq, Connection &c);
 
     bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection &c);
+
 
     defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID);
 
@@ -85,15 +89,15 @@ public:
 
     bool receive(Connection &c);
 
-    defs::GlobalAddress Malloc(size_t size);
+    defs::GlobalAddress Malloc(size_t size, uint16_t srcID);
 
     defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 
     defs::GlobalAddress write(defs::Data *data);
 
-    void FprintF(MaFile f);
+    void FprintF(char * data, defs::GlobalAddress gaddr, size_t);
 
-    void FreadF();
+    char * FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
 
     uint64_t read(defs::GlobalAddress gaddr);
 
