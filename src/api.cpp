@@ -18,13 +18,13 @@ defs::GlobalAddress Node::Malloc(size_t size) {
     auto msize = size + sizeof(defs::SaveData);
     auto buffer = malloc(msize);
     if (buffer) {
-        auto gaddr = defs::GlobalAddress{size, buffer, id};
+        auto gaddr = defs::GlobalAddress{size, buffer, id, 0};
         return gaddr;
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
 
-        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0}.sendable(id),
+        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0,0}.sendable(id),
                                defs::IMMDATA::MALLOC,
                                c);
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
@@ -184,8 +184,8 @@ defs::GlobalAddress Node::write(defs::Data *data) {
 
 defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
     if (isLocal(data->ga)) {
-        auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS, srcID,
-                                          {}};
+        auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS,
+                                          srcID, {}};
         std::memcpy(data->ga.ptr, &writtenData, sizeof(writtenData));
         return data->ga;
     } else {
@@ -207,9 +207,18 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
 
 
 void Node::FprintF(MaFile f) {
+//    if(gaddr.ptr != nullptr){
+//        if(isLocal(gaddr)){
+//
+//        }
+//    }
     auto port = defs::port;
     auto c = connectClientSocket(port);
     sendFile(c, f);
     closeClientSocket(c);
     std::cout << "sent file" << std::endl;
+}
+
+void Node::FreadF(){
+
 }

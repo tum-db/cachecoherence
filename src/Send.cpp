@@ -162,7 +162,7 @@ void Node::broadcastInvalidations(std::vector<uint16_t> nodes,
 
 void Node::sendFile(Connection &c, MaFile &file) {
     std::cout << "filesize: " << file.size() << std::endl;
-    size_t blocksize = 900;
+    size_t blocksize = defs::MAX_BLOCK_SIZE;
     auto fileinfo = defs::FileInfo{file.size(), blocksize};
 
     auto &cq = network.getSharedCompletionQueue();

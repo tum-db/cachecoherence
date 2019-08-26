@@ -117,3 +117,8 @@ size_t MaFile::read_size() {
 void MaFile::close() {
     ::close(fd);
 }
+
+bool MaFile::enough_space(size_t offset, size_t size) {
+    auto res = posix_fallocate(fd,offset,size);
+    return res == 0;
+}

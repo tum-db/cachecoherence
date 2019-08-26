@@ -55,6 +55,8 @@ public:
     static std::unique_ptr<File> make_temporary_file();
 
     void close();
+
+    bool enough_space(size_t offset, size_t size);
 };
 
 

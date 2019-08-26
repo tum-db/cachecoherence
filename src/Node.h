@@ -23,6 +23,8 @@ private:
     std::unordered_map<uint16_t, defs::LOCK_STATES> locks;
     Cache cache;
 
+    uint16_t filenamesnbr = 0;
+    char * getNextFileName();
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                      rdma::CompletionQueuePair &cq, Connection &c);
@@ -90,6 +92,8 @@ public:
     defs::GlobalAddress write(defs::Data *data);
 
     void FprintF(MaFile f);
+
+    void FreadF();
 
     uint64_t read(defs::GlobalAddress gaddr);
 

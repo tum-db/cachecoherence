@@ -235,7 +235,7 @@ void Node::handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
     auto fileinfo = new defs::FileInfo(*fitmp);
     std::cout << fileinfo->size << ", " << fileinfo->blocksize << std::endl;
 
-    auto file = MaFile("13223", moderndbs::File::WRITE);
+    auto file = MaFile(getNextFileName(), moderndbs::File::WRITE);
     auto ok = true;
     auto sendmr = network.registerMr(&ok, sizeof(bool), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);

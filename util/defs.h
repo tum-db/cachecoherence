@@ -13,6 +13,7 @@ namespace defs {
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
+    constexpr size_t MAX_BLOCK_SIZE = 512 + 256 +128 +16; // 912, bigger generates error
     const uint16_t locknode = 2000;
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
@@ -40,12 +41,14 @@ namespace defs {
         uint64_t ptr;
         uint16_t id;
         uint16_t srcID;
+        bool isFile;
     };
 
     struct __attribute__ ((packed)) GlobalAddress {
         size_t size;
         void *ptr;
         uint16_t id;
+        bool isFile;
 
         SendGlobalAddr sendable(uint16_t srcID) {
             SendGlobalAddr sga{};
@@ -53,21 +56,24 @@ namespace defs {
             sga.ptr = reinterpret_cast<uint64_t >(ptr);
             sga.id = id;
             sga.srcID = srcID;
+            sga.isFile = isFile;
             return sga;
         };
 
         GlobalAddress() = default;
 
-        GlobalAddress(size_t s, void *p, uint16_t i) {
+        GlobalAddress(size_t s, void *p, uint16_t i, bool iF) {
             size = s;
             ptr = p;
             id = i;
+            isFile = iF;
         };
 
         explicit GlobalAddress(SendGlobalAddr sga) {
             size = sga.size;
             ptr = reinterpret_cast<void *>(sga.ptr);
             id = sga.id;
+            isFile = sga.isFile;
         };
 
         uint16_t getNodeId() {

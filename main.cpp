@@ -138,7 +138,7 @@ int main() {
 
         uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
         size_t size = sizeof(d);
-        auto firstgaddr = defs::GlobalAddress(size, nullptr, 0);
+        auto firstgaddr = defs::GlobalAddress(size, nullptr, 0, 0);
 
         std::cout << "Trying to Malloc" << std::endl;
         auto conn = node.connectClientSocket(3000);
