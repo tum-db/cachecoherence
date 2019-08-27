@@ -347,14 +347,24 @@ void Node::handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remot
         auto recv = ibv::workrequest::Recv{};
         recv.setSge(nullptr, 0);
         c.rcqp->postRecvRequest(recv);
-        auto wc = cq.pollRecvWorkCompletionBlocking();
-        auto immData = wc.getImmData();
-        auto castdata = reinterpret_cast<uint64_t *>(recvbuf);
-        std::cout << castdata << std::endl;
-        auto ga = FprintF(reinterpret_cast<char *>(castdata), gaddr,
-                          rfd->size).sendable(rfd->sga.srcID);
 
-        sendmr = network.registerMr(&ga, sizeof(defs::SendGlobalAddr), {});
+        auto wc = cq.pollRecvWorkCompletionBlocking();
+
+        auto castdata = reinterpret_cast<uint64_t *>(recvbuf);
+
+        std::cout << castdata << std::endl;
+        auto data = reinterpret_cast<char *>(castdata);
+
+        auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::WRITE);
+        f.resize(gaddr.size + rfd->size);
+        std::cout << data << std::endl;
+        std::cout << "local, size: " << rfd->size << ", gaddr-size: " << gaddr.size
+                  << ", filesize: "
+                  << f.size() << std::endl;
+        f.write_block(data, gaddr.size, rfd->size);
+        gaddr.resize(rfd->size + gaddr.size);
+
+        sendmr = network.registerMr(&gaddr, sizeof(defs::SendGlobalAddr), {});
         write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
                                          defs::IMMDATA::DEFAULT);
         c.rcqp->postWorkRequest(write);
