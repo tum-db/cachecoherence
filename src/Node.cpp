@@ -16,6 +16,5 @@ bool Node::isLocal(defs::GlobalAddress gaddr) {
 char * Node::getNextFileName(){
     std::string res = std::to_string(filenamesnbr);
     filenamesnbr++;
-    std::cout << res <<", "<< filenamesnbr << std::endl;
     return const_cast<char *>(res.c_str());
 }

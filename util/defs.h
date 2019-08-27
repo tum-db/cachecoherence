@@ -79,6 +79,10 @@ namespace defs {
         uint16_t getNodeId() {
             return id;
         };
+
+        void resize(size_t newsize){
+            size = newsize;
+        };
     };
 
 
@@ -141,7 +145,9 @@ namespace defs {
         RESET = 6,
         INVALIDATE = 7,
         FILE = 8,
-        MALLOCFILE = 9
+        MALLOCFILE = 9,
+        READFILE = 10,
+        WRITEFILE = 11
     };
 
 
@@ -153,6 +159,12 @@ namespace defs {
     struct __attribute__ ((packed)) FileInfo {
         size_t size;
         size_t blocksize;
+    };
+
+    struct __attribute__ ((packed)) ReadFileData {
+        SendGlobalAddr sga;
+        size_t offset;
+        size_t size;
     };
 
     ibv::workrequest::Simple<ibv::workrequest::WriteWithImm>

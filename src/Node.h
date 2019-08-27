@@ -24,7 +24,8 @@ private:
     Cache cache;
 
     uint16_t filenamesnbr = 0;
-    char * getNextFileName();
+
+    char *getNextFileName();
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                      rdma::CompletionQueuePair &cq, Connection &c);
@@ -41,8 +42,14 @@ private:
     void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
-    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress
-    remoteAddr, rdma::CompletionQueuePair &cq, Connection &c);
+    void handleReadFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                        rdma::CompletionQueuePair &cq, Connection &c);
+
+    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                     rdma::CompletionQueuePair &cq, Connection &c);
+
+    void handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+                     rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, Connection &c);
@@ -71,6 +78,11 @@ private:
 
     void sendFile(Connection &c, MaFile &file);
 
+    void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
+
+    defs::GlobalAddress sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
+
+
 public:
 
     explicit Node();
@@ -95,9 +107,9 @@ public:
 
     defs::GlobalAddress write(defs::Data *data);
 
-    void FprintF(char * data, defs::GlobalAddress gaddr, size_t);
+    defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t);
 
-    char * FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
+    char *FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
 
     uint64_t read(defs::GlobalAddress gaddr);
 

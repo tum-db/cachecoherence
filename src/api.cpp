@@ -233,19 +233,28 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
 }
 
 
-void Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size) {
+defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size) {
     if(!gaddr.isFile){
-        return;
+        return gaddr;
     }
+
     if(isLocal(gaddr)) {
+
         auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::WRITE);
+        f.resize(gaddr.size+size);
+        std::cout << data << std::endl;
+        std::cout << "local, size: "<< size << ", gaddr-size: "<< gaddr.size <<", filesize: "<< f.size()<< std::endl;
         f.write_block(data, gaddr.size, size);
+        gaddr.resize(size + gaddr.size);
+        return gaddr;
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
-        auto senddata = defs::Data(size, *reinterpret_cast<uint64_t *>(data), gaddr).sendable(id);
-        auto ga = sendData(senddata, defs::IMMDATA::WRITE, c);
+        auto castdata = reinterpret_cast<uint64_t *>(data);
+        auto senddata = defs::ReadFileData{gaddr.sendable(id), gaddr.size, size};
+        auto ga = sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, c, castdata);
         closeClientSocket(c);
+        return ga;
     }
 
 }
@@ -264,7 +273,9 @@ char * Node::FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset) {
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
-     // TODO: method for reading remote
+        auto sendData = defs::ReadFileData{gaddr.sendable(id), offset, size};
+        sendReadFile(sendData, defs::IMMDATA::READFILE, c, result);
+
         closeClientSocket(c);
     }
     return result;

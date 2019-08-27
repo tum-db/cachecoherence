@@ -113,26 +113,26 @@ int main() {
         }
     } else if (servOcli == 1) {
         node.setID(2000);
-          HashTable<bool> h = HashTable<bool>(&node);
+        /*    HashTable<bool> h = HashTable<bool>(&node);
 
-          h.insert(4,false);
-          std::cout << "bool should be 0: " << h[4] << std::endl;
+            h.insert(4,false);
+            std::cout << "bool should be 0: " << h[4] << std::endl;
 
-          std::cout << "bool should be 0: " << h.get(4).value_or("nope") << std::endl;
-          std::cout << "size should be 1: " << h.size() << std::endl;
-          h.insert(5,true);
-          h.insert(6,false);
-          std::cout << "size should be 3: " << h.size() << std::endl;
+            std::cout << "bool should be 0: " << h.get(4).value_or("nope") << std::endl;
+            std::cout << "size should be 1: " << h.size() << std::endl;
+            h.insert(5,true);
+            h.insert(6,false);
+            std::cout << "size should be 3: " << h.size() << std::endl;
 
-          std::cout << "bool should be 1: " << h[5] << std::endl;
-          std::cout << "bool should be 0: " << h[6] << std::endl;
-          h.erase(5);
-          std::cout << "size should be 2: " << h.size() << std::endl;
+            std::cout << "bool should be 1: " << h[5] << std::endl;
+            std::cout << "bool should be 0: " << h[6] << std::endl;
+            h.erase(5);
+            std::cout << "size should be 2: " << h.size() << std::endl;
 
-          std::cout << "count should be 0: " << h.count(5) << std::endl;
-          std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
+            std::cout << "count should be 0: " << h.count(5) << std::endl;
+            std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
 
-
+*/
 
 
 
@@ -152,10 +152,9 @@ int main() {
                   << std::endl;
 
 
-
         std::cout << "Trying to Malloc" << std::endl;
 
-        auto test2 = node.Malloc(size,node.getID());
+        auto test2 = node.Malloc(size, node.getID());
 
         std::cout << "Got second GAddr: " << test2.id << ", " << test2.size << ", " << test2.ptr
                   << std::endl;
@@ -189,9 +188,26 @@ int main() {
 
         std::cout << "Done freeing. " << std::endl;
 
-        std::cout << "Trying to send File" << std::endl;
-        // auto f = MaFile("test", moderndbs::File::READ);
-      //  node.FprintF(f);
+        std::cout << "Trying to malloc File" << std::endl;
+        auto conn2 = node.connectClientSocket(3000);
+        auto fa = defs::GlobalAddress{30, nullptr, 0, true};
+        auto filea = node.sendAddress(fa.sendable(node.getID()), defs::IMMDATA::MALLOCFILE, conn2);
+        node.closeClientSocket(conn2);
+        auto filesga = reinterpret_cast<defs::SendGlobalAddr *>(filea);
+        std::cout <<"done malloc, gonna write to file" << std::endl;
+
+        auto fileaddress = defs::GlobalAddress(*filesga);
+        auto f = MaFile("test", moderndbs::File::READ);
+        std::vector<char> block;
+        block.resize(30);
+        char *readed = &block[0];
+        f.read_block(0, 30, readed);
+        node.FprintF(readed, fileaddress, 30);
+
+
+
+
+
 
     } else {
         std::cout << "This was no valid Number!" << std::endl;
