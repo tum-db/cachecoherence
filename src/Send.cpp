@@ -282,4 +282,8 @@ Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &
         auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
         return defs::GlobalAddress(*sga);
     }
+    else {
+        throw std::runtime_error("Remote Node did not send ACK.");
+
+    }
 }

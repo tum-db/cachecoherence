@@ -25,7 +25,6 @@ private:
 
     uint16_t filenamesnbr = 0;
 
-    char *getNextFileName();
 
     void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                      rdma::CompletionQueuePair &cq, Connection &c);
@@ -86,6 +85,8 @@ private:
 public:
 
     explicit Node();
+
+    char *getNextFileName();
 
     Connection connectClientSocket(uint16_t port);
 

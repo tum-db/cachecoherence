@@ -36,7 +36,10 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
 
 
         if (sga->id == 0 && sga->isFile) {
-            auto filename = getNextFileName();
+            throw std::runtime_error("No more free memory!");
+
+            //TODO throw
+           /* auto filename = getNextFileName();
             auto nf = MaFile(filename, MaFile::Mode::WRITE);
             if (nf.enough_space(0, size)) {
                 c.socket.close();
@@ -53,7 +56,7 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
                     throw std::runtime_error("No more free memory!");
 
                 }
-            }
+            }*/
 
         }
         c.socket.close();

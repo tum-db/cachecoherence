@@ -188,25 +188,21 @@ int main() {
 
         std::cout << "Done freeing. " << std::endl;
 
-        std::cout << "Trying to malloc File" << std::endl;
-        auto conn2 = node.connectClientSocket(3000);
-        auto fa = defs::GlobalAddress{30, nullptr, 0, true};
-        auto filea = node.sendAddress(fa.sendable(node.getID()), defs::IMMDATA::MALLOCFILE, conn2);
-        node.closeClientSocket(conn2);
-        auto filesga = reinterpret_cast<defs::SendGlobalAddr *>(filea);
+//        std::cout << "Trying to malloc File" << std::endl;
+//        auto conn2 = node.connectClientSocket(3000);
+//        auto fa = defs::GlobalAddress{30, nullptr, 0, true};
+//        auto filea = node.sendAddress(fa.sendable(node.getID()), defs::IMMDATA::MALLOCFILE, conn2);
+//        node.closeClientSocket(conn2);
+//        auto filesga = reinterpret_cast<defs::SendGlobalAddr *>(filea);
         std::cout <<"done malloc, gonna write to file" << std::endl;
-
-        auto fileaddress = defs::GlobalAddress(*filesga);
+        char * filename = node.getNextFileName();
+        auto fileaddress = defs::GlobalAddress(900, filename, node.getID(), true);
         auto f = MaFile("test", moderndbs::File::READ);
         std::vector<char> block;
-        block.resize(30);
+        block.resize(900);
         char *readed = &block[0];
-        f.read_block(0, 30, readed);
-        node.FprintF(readed, fileaddress, 30);
-
-
-
-
+        f.read_block(0, 900, readed);
+        node.FprintF(readed, fileaddress, 900);
 
 
     } else {

@@ -337,8 +337,8 @@ void Node::handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remot
     auto rfd = reinterpret_cast<defs::ReadFileData *>(recvbuf);
     auto gaddr = defs::GlobalAddress(rfd->sga);
     if (gaddr.isFile) {
-        auto akk = true;
-        auto sendmr = network.registerMr(&akk, sizeof(bool), {});
+        auto ack = true;
+        auto sendmr = network.registerMr(&ack, sizeof(bool), {});
         auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
                                               defs::IMMDATA::DEFAULT);
         c.rcqp->postWorkRequest(write);
@@ -348,7 +348,7 @@ void Node::handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remot
         recv.setSge(nullptr, 0);
         c.rcqp->postRecvRequest(recv);
 
-        auto wc = cq.pollRecvWorkCompletionBlocking();
+        cq.pollRecvWorkCompletionBlocking();
 
         auto castdata = reinterpret_cast<uint64_t *>(recvbuf);
 
