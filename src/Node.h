@@ -5,22 +5,24 @@
 #ifndef MEDMM_NODE_H
 #define MEDMM_NODE_H
 
-
-#include "../util/RDMANetworking.h"
-#include "../rdma/CompletionQueuePair.hpp"
-#include "../util/defs.h"
+#include <unordered_map>
+#include <stdlib.h>
+#include <cstdio>
+#include <thread>
+#include <zconf.h>
+#include "../util/Locks.h"
 #include "Cache.h"
 #include "Connection.h"
+#include "../util/socket/tcp.h"
 #include "../buffermanager/MaFile.h"
-#include <cstddef>
-#include <unordered_map>
-
+#include "../util/RDMANetworking.h"
+#include "../rdma/CompletionQueuePair.hpp"
 
 class Node {
 private:
     rdma::Network network;
     uint16_t id;
-    std::unordered_map<uint16_t, defs::LOCK_STATES> locks;
+    std::unordered_map<uint64_t, LOCK_STATES> locks;
     Cache cache;
 
     uint16_t filenamesnbr = 0;
@@ -59,7 +61,7 @@ private:
     void handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
-    bool sendLock(defs::Lock lock, defs::IMMDATA immData, Connection &c);
+    bool sendLock(Lock lock, defs::IMMDATA immData, Connection &c);
 
 
     defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID);
@@ -81,6 +83,9 @@ private:
 
     defs::GlobalAddress sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
 
+   static inline uint64_t generateLockId(defs::SendGlobalAddr sga){
+        return GlobalAddressHash<defs::SendGlobalAddr>()(sga);
+    }
 
 public:
 
@@ -96,7 +101,7 @@ public:
 
     defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
-    bool setLock(uint16_t lockId, defs::LOCK_STATES state);
+    bool setLock(uint64_t lockId, LOCK_STATES state);
 
     void connectAndReceive(uint16_t port);
 

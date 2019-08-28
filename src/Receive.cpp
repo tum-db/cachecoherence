@@ -4,8 +4,7 @@
 
 
 #include "Node.h"
-#include "../util/socket/tcp.h"
-#include "../buffermanager/buffer_manager.h"
+
 
 
 bool Node::receive(Connection &c) {
@@ -138,7 +137,7 @@ remoteAddr, rdma::CompletionQueuePair &cq, Connection &c) {
 
 void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                        rdma::CompletionQueuePair &cq, Connection &c) {
-    auto l = reinterpret_cast<defs::Lock *>(recvbuf);
+    auto l = reinterpret_cast<Lock *>(recvbuf);
     auto lock = setLock(l->id, l->state);
     auto sendmr = network.registerMr(&lock, sizeof(bool), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);

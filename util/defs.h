@@ -32,7 +32,7 @@ namespace defs {
             rdnnbr++;
             std::string s = std::to_string(rdnnbr);
             name = s.c_str();
-        }
+        };
     };
 
 
@@ -105,7 +105,7 @@ namespace defs {
             sd.size = size;
             sd.data = data;
             return sd;
-        }
+        };
 
         Data() = default;
 
@@ -119,7 +119,7 @@ namespace defs {
             size = sd.size;
             data = sd.data;
             ga = GlobalAddress(sd.sga);
-        }
+        };
     };
 
     struct SaveData {
@@ -129,11 +129,6 @@ namespace defs {
         std::vector<uint16_t> sharerNodes;
     };
 
-    enum LOCK_STATES {
-        UNLOCKED = 0,
-        SHAREDLOCK = 1,
-        EXCLUSIVE = 2
-    };
 
     enum IMMDATA {
         DEFAULT = 0,
@@ -150,11 +145,6 @@ namespace defs {
         WRITEFILE = 11
     };
 
-
-    struct __attribute__ ((packed)) Lock {
-        uint16_t id;
-        LOCK_STATES state;
-    };
 
     struct __attribute__ ((packed)) FileInfo {
         size_t size;

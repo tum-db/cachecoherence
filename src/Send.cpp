@@ -2,12 +2,7 @@
 // Created by Magdalena Pröbstl on 2019-06-15.
 //
 
-#include <chrono>
-#include <thread>
-#include <zconf.h>
 #include "Node.h"
-#include "../util/defs.h"
-#include "../util/socket/tcp.h"
 
 
 Connection Node::connectClientSocket(uint16_t port) {
@@ -35,7 +30,7 @@ Connection Node::connectClientSocket(uint16_t port) {
 
 void Node::closeClientSocket(Connection &c) {
     std::cout << "closing socket: " << c.socket.get() << std::endl;
-    auto fakeLock = defs::Lock{id, defs::LOCK_STATES::UNLOCKED};
+    auto fakeLock = Lock{id, LOCK_STATES::UNLOCKED};
     sendLock(fakeLock, defs::RESET, c);
     c.rcqp->setToResetState();
     c.socket.close();
@@ -107,11 +102,11 @@ defs::GlobalAddress Node::sendData(defs::SendingData data, defs::IMMDATA immData
     return defs::GlobalAddress(*sga);
 }
 
-bool Node::sendLock(defs::Lock lock, defs::IMMDATA immData, Connection &c) {
+bool Node::sendLock(Lock lock, defs::IMMDATA immData, Connection &c) {
     auto &cq = network.getSharedCompletionQueue();
-    auto sendmr = network.registerMr(&lock, sizeof(defs::Lock), {});
-    auto recvbuf = new defs::Lock();
-    auto recvmr = network.registerMr(recvbuf, sizeof(defs::Lock),
+    auto sendmr = network.registerMr(&lock, sizeof(Lock), {});
+    auto recvbuf = new Lock();
+    auto recvmr = network.registerMr(recvbuf, sizeof(Lock),
                                      {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
     auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
                                                      recvmr->getRkey()};
