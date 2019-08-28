@@ -48,6 +48,7 @@ bool Node::receive(Connection &c) {
             res = handleWrite(recvbuf, remoteMr, cq, c);
             std::cout << "result of write: " << res << std::endl;
             break;
+
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
         {
@@ -99,6 +100,7 @@ void Node::connectAndReceive(uint16_t port) {
     auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};
     std::cout << "now listening... " << std::endl;
     l5::util::tcp::listen(soc);
+
     c.socket = l5::util::tcp::accept(soc);
     std::cout << "and accepted" << std::endl;
     soc.close();
@@ -117,8 +119,10 @@ void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remo
                             rdma::CompletionQueuePair &cq, Connection &c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto gaddr = defs::GlobalAddress(*sga);
+
     auto newgaddr = Malloc(gaddr.size, sga->srcID).sendable(sga->srcID);
     auto sendmr = network.registerMr(&newgaddr, sizeof(defs::SendGlobalAddr), {});
+
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -152,7 +156,7 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
     auto data = performRead(gaddr, sga->srcID);
     data->iscached = defs::CACHE_DIRECTORY_STATE::SHARED;
     data->sharerNodes.push_back(sga->srcID);
-//    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
+    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
     auto sendmr = network.registerMr(&data->data, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
@@ -202,7 +206,7 @@ void Node::handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress re
                               rdma::CompletionQueuePair &cq, Connection &c) {
     auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
     auto res = cache.removeCacheItem(defs::GlobalAddress(*sga));
-    std::cout << "removed cacheitem" << std::endl;
+  //  std::cout << "removed cacheitem" << std::endl;
     auto sendmr = network.registerMr(&res, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
@@ -225,7 +229,7 @@ void Node::handleReset(ibv::memoryregion::RemoteAddress
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair &cq,
                               std::vector<uint16_t> nodes, uint16_t srcID, Connection &c) {
-    std::cout << "going to prepareForInvalidate" << std::endl;
+  //  std::cout << "going to prepareForInvalidate" << std::endl;
     auto invalidation = data.ga.sendable(srcID);
     auto sendmr1 = network.registerMr(&invalidation, sizeof(defs::SendGlobalAddr), {});
     auto write1 = defs::createWriteWithImm(sendmr1->getSlice(), remoteAddr,

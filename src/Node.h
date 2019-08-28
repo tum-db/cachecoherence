@@ -20,6 +20,7 @@
 
 class Node {
 private:
+    size_t allocated = 0;
     rdma::Network network;
     uint16_t id;
     std::unordered_map<uint64_t, LOCK_STATES> locks;

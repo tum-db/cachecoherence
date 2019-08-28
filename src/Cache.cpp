@@ -58,12 +58,11 @@ CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
     }
 }
 
-void Cache::alterCacheItem(CacheItem ci, defs::GlobalAddress ga){
+void Cache::alterCacheItem(CacheItem ci, defs::GlobalAddress ga) {
     auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0)));
-    if(cacheItem != items.end()){
+    if (cacheItem != items.end()) {
         cacheItem->second = ci;
-    }
-    else{
+    } else {
         addCacheItem(ga, ci);
     }
 }
