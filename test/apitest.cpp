@@ -7,7 +7,6 @@
 #include <src/Node.h>
 #include <zconf.h>
 #include <wait.h>
-#include "app/HashTable.h"
 
 
 static size_t MESSAGES = 4 * 1024; // ~ 1s
@@ -34,7 +33,7 @@ int main(int, const char **args) {
         uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
         size_t size = sizeof(d);
         std::cout << "Trying to Malloc" << std::endl;
-        auto firstgaddr = defs::GlobalAddress(size, nullptr ,0);
+        auto firstgaddr = defs::GlobalAddress(size, nullptr ,0, false);
         auto recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn);
         clientnode.closeClientSocket(conn);
         auto test = reinterpret_cast<defs::GlobalAddress *>(recv);

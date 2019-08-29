@@ -29,7 +29,7 @@ int main() {
 
 
 
-        clientnode.Malloc(testdata.size());
+        clientnode.Malloc(testdata.size(),clientnode.getID());
 
 // Benchmark counters are automatically stopped and printed on destruction of e
     }

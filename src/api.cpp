@@ -236,7 +236,7 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
 }
 
 
-defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size) {
+defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset) {
     if (!gaddr.isFile) {
         return gaddr;
     }
@@ -249,7 +249,7 @@ defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t 
             std::cout << "local, size: " << size << ", gaddr-size: " << gaddr.size
                       << ", filesize: "
                       << f.size() << std::endl;
-            f.write_block(data, gaddr.size, size);
+            f.write_block(data, offset, size);
             gaddr.resize(size + gaddr.size);
             setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
         }
@@ -258,7 +258,7 @@ defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t 
         auto port = defs::port;
         auto c = connectClientSocket(port);
         auto castdata = reinterpret_cast<uint64_t *>(data);
-        auto senddata = defs::ReadFileData{gaddr.sendable(id), gaddr.size, size};
+        auto senddata = defs::ReadFileData{gaddr.sendable(id), offset, size};
         auto ga = sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, c, castdata);
         closeClientSocket(c);
         return ga;
@@ -273,7 +273,7 @@ char *Node::FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset) {
     }
     std::vector<char> block;
     block.resize(size);
-    if (setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::SHAREDLOCK)) {
+
         char *result = &block[0];
         if (isLocal(gaddr)) {
 
@@ -289,9 +289,6 @@ char *Node::FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset) {
 
             closeClientSocket(c);
         }
-        setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
         return result;
-    } else {
-        return nullptr;
-    }
+
 }

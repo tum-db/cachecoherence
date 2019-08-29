@@ -18,6 +18,11 @@
 #include "../util/RDMANetworking.h"
 #include "../rdma/CompletionQueuePair.hpp"
 
+
+static uint64_t generateLockId(defs::SendGlobalAddr sga){
+    return GlobalAddressHash<defs::SendGlobalAddr>()(sga);
+}
+
 class Node {
 private:
     size_t allocated = 0;
@@ -84,9 +89,7 @@ private:
 
     defs::GlobalAddress sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
 
-   static inline uint64_t generateLockId(defs::SendGlobalAddr sga){
-        return GlobalAddressHash<defs::SendGlobalAddr>()(sga);
-    }
+
 
 public:
 
@@ -114,7 +117,7 @@ public:
 
     defs::GlobalAddress write(defs::Data *data);
 
-    defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t);
+    defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset);
 
     char *FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
 

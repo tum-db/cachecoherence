@@ -203,7 +203,7 @@ int main() {
         block.resize(900);
         char *readed = &block[0];
         f.read_block(0, 900, readed);
-        node.FprintF(readed, fileaddress, 900);
+        node.FprintF(readed, fileaddress, 900, 0);
 
 
     } else {

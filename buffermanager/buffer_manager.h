@@ -25,6 +25,7 @@ private:
 
     enum State { NEW, LOADING, LOADED, EVICTING, RELOADED };
 
+    defs::GlobalAddress gaddr;
     uint64_t page_id;
     char* data;
     State state = NEW;
