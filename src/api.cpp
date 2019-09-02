@@ -67,7 +67,6 @@ allocated = allocated + msize;
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
-        std::cout << "test" << std::endl;
 
         auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
 
@@ -77,13 +76,11 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
             !d->sharerNodes.empty()) {
             std::cout << d->data << ", " << d->iscached << ", " << d->ownerNode << ", "
                       << d->sharerNodes[0] << std::endl;
-            std::cout << "test2" << std::endl;
 
             broadcastInvalidations(d->sharerNodes, gaddr);
         }
         allocated = allocated - (sizeof(defs::SaveData) + gaddr.size);
         free(gaddr.ptr);
-        std::cout << "test3" << std::endl;
 
         gaddr.ptr = nullptr;
         gaddr.size = 0;
@@ -104,7 +101,6 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
 
 uint64_t Node::read(defs::GlobalAddress gaddr) {
     if (setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::SHAREDLOCK)) {
-        std::cout << "reading..." << std::endl;
         auto result = performRead(gaddr, id);
         setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
         return result->data;
@@ -196,10 +192,9 @@ defs::GlobalAddress Node::write(defs::Data *data) {
                 broadcastInvalidations(d->sharerNodes, data->ga);
             }
 
-            auto writtenData = new defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED,
+            new (data->ga.ptr) defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED,
                                                   id,
                                                   {}};
-            std::memcpy(data->ga.ptr, writtenData, sizeof(defs::SaveData));
             result = data->ga;
 
         } else {

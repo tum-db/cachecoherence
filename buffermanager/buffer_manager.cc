@@ -94,7 +94,7 @@ namespace moderndbs {
 
 
     BufferManager::BufferManager(size_t page_size, size_t page_count, Node *n,
-                                 HashTable<BufferFrame> pages)
+                                 HashTable<BufferFrame::SaveBufferFrame> pages)
             : page_size(page_size), page_count(page_count),
               loaded_pages{std::make_unique<char[]>(page_count * page_size)}, pages(pages) {
         node = n;
@@ -104,17 +104,18 @@ namespace moderndbs {
     BufferManager::~BufferManager() {
         std::unique_lock latch{directory_latch};
         for (auto &entry : pages) {
-            write_out_page(entry, latch);
+            auto bf = BufferFrame(entry);
+            write_out_page(bf, latch);
         }
     }
 
 
-    BufferFrame &BufferManager::fix_page(uint64_t page_id, bool exclusive) {
+    BufferFrame BufferManager::fix_page(uint64_t page_id, bool exclusive) {
         std::unique_lock latch{directory_latch};
         while (true) {
             if (pages.get(page_id).has_value() == 1) {
                 // Page is already loaded.
-                auto &page = pages[page_id];
+                auto page = BufferFrame(pages[page_id]);
                 ++page.num_users;
                 if (page.state == BufferFrame::EVICTING) {
                     // Page is being evicted but we want to use it, so "revive" it
@@ -145,13 +146,13 @@ namespace moderndbs {
                 if (page.lru_position != lru.end()) {
                     // Page is in LRU list, move it to the end.
                     lru.erase(page.lru_position);
-                    page.lru_position = lru.insert(lru.end(), &page);
+                    page.lru_position = lru.insert(lru.end(), new BufferFrame(page));
                 } else {
                     assert(page.fifo_position != fifo.end());
                     // Page was in FIFO list and is fixed again, so move it to LRU.
                     fifo.erase(page.fifo_position);
                     page.fifo_position = fifo.end();
-                    page.lru_position = lru.insert(lru.end(), &page);
+                    page.lru_position = lru.insert(lru.end(), new BufferFrame(page));
                 }
                 latch.unlock();
                 //    node->setLock(generateLockId(page.gaddr.sendable(0)), LOCK_STATES::EXCLUSIVE);
@@ -162,8 +163,9 @@ namespace moderndbs {
         }
         // Create a new page and don't insert it in the queues, yet.
         assert(pages.get(page_id).has_value() == 0);
-        pages.insert(page_id, BufferFrame(page_id, nullptr, fifo.end(), lru.end()));
-        auto &page = pages[page_id];
+        auto newpage = BufferFrame(page_id, nullptr, fifo.end(), lru.end());
+        pages.insert(page_id, newpage.sendable());
+        auto page = BufferFrame(pages[page_id]);
         ++page.num_users;
 
         //  page.lock(true);
@@ -187,7 +189,9 @@ namespace moderndbs {
         }
         page.state = BufferFrame::LOADING;
         page.data = data;
-        page.fifo_position = fifo.insert(fifo.end(), &page);
+
+        page.fifo_position = fifo.insert(fifo.end(), new BufferFrame(page));
+
         load_page(page, latch);
         //page.unlock();
         // node->setLock(generateLockId(page->gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
@@ -196,11 +200,14 @@ namespace moderndbs {
         //    node->setLock(generateLockId(page->gaddr.sendable(0)), LOCK_STATES::EXCLUSIVE);
 
         //   page.lock(exclusive);
+        pages.erase(page_id);
+        pages.insert(page_id, page.sendable());
+
         return page;
     }
 
 
-    void BufferManager::unfix_page(BufferFrame &page, bool is_dirty) {
+    void BufferManager::unfix_page(BufferFrame page, bool is_dirty) {
         //  page.unlock();
         //      node->setLock(generateLockId(page.gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
 
@@ -211,6 +218,8 @@ namespace moderndbs {
             page.is_dirty = true;
         }
         --page.num_users;
+        pages.erase(page.page_id);
+        pages.insert(page.page_id, page.sendable());
     }
 
 
@@ -276,6 +285,7 @@ namespace moderndbs {
                 latch.lock();
             }
         }
+
         page.state = BufferFrame::LOADED;
         page.is_dirty = false;
     }
@@ -353,6 +363,14 @@ namespace moderndbs {
         char *data = page_to_evict->data;
         pages.erase(page_to_evict->page_id);
         return data;
+    }
+
+    void BufferManager::insert_data(BufferFrame &page, char *newdata) {
+
+        page.data = newdata;
+        pages.erase(page.page_id);
+        pages.insert(page.page_id, page.sendable());
+
     }
 
 }  // namespace moderndbs

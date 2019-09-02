@@ -43,8 +43,8 @@ private:
 
 
     std::vector<Elem *> storage;
-    typedef V* iterator;
-    typedef const V* const_iterator;
+    typedef V *iterator;
+    typedef const V *const_iterator;
 
 
     uint32_t hashBucket(uint32_t key) const { return hash(key) % storage.size(); }
@@ -73,7 +73,8 @@ public:
     }
 
 
-    HashTable ( const HashTable & ) = default;
+    HashTable(const HashTable &) = default;
+
     /**
      * Destructor
      */
@@ -92,8 +93,9 @@ public:
         auto gadd = node->Malloc(size, node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        auto castdata = reinterpret_cast<uint64_t *>(&value);
-        auto data = new defs::Data(sizeof(V), *castdata, gadd);
+        auto storevalue = new V(value);
+        auto castdata = reinterpret_cast<uintptr_t >(storevalue);
+        auto data = new defs::Data(sizeof(V), castdata, gadd);
         node->write(data);
     }
 
@@ -141,7 +143,7 @@ public:
         while (bucket != nullptr) {
             if (bucket->key == key) {
                 auto value = node->read(bucket->gaddr);
-                auto result = reinterpret_cast<V *>(&value);
+                auto result = reinterpret_cast<V *>(value);
                 return std::make_optional<V>(*result);
             }
             bucket = bucket->next;
@@ -164,8 +166,8 @@ public:
         while (bucket != nullptr) {
             if (bucket->key == key) {
                 auto addr = bucket->gaddr;
-                uint64_t value = node->read(addr);
-                auto result = reinterpret_cast<V *>(&value);
+                auto value = node->read(addr);
+                auto result = reinterpret_cast<V *>(value);
                 return *result;
             }
             bucket = bucket->next;
@@ -174,56 +176,95 @@ public:
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         uint64_t value = node->read(gadd);
-        auto result = reinterpret_cast<V *>(&value);
+        std::cout << key << ", " << value << std::endl;
+        auto result = reinterpret_cast<V *>(value);
         return *result;
 
     }
 
     iterator begin() {
-        auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value); }
-    const_iterator begin() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value); }
-    iterator end() {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value);  }
-    const_iterator end() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value);  }
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                auto value = node->read(b->gaddr);
+                return reinterpret_cast<V *>(value);
+            }
+        }
+        return nullptr;
+    }
+
+    const_iterator begin() const {
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                auto value = node->read(b->gaddr);
+                return reinterpret_cast<V *>(value);
+            }
+        }
+        return nullptr;
+    }
+
+    iterator end() {
+        uintptr_t value;
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                value = node->read(b->gaddr);
+            }
+        }
+        if(value) {
+            return reinterpret_cast<V *>(value);
+        } else{
+            return nullptr;
+        }
+    }
+
+    const_iterator end() const {
+        uintptr_t value;
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                value = node->read(b->gaddr);
+            }
+        }
+        if(value) {
+            return reinterpret_cast<V *>(value);
+        } else{
+            return nullptr;
+        }
+    }
 
 
-    /**
-     * get count of contained elements
-     *
-     * used for containment check
-     *
-     * @param key
-     * @return 0 if not contained, 1 if contained
-     */
+/**
+ * get count of contained elements
+ *
+ * used for containment check
+ *
+ * @param key
+ * @return 0 if not contained, 1 if contained
+ */
     uint64_t count(uint32_t key) {
         return get(key).has_value();
     }
 
-    /**
-     * get number of stored element
-     *
-     * @return HT size
-     */
+/**
+ * get number of stored element
+ *
+ * @return HT size
+ */
     std::size_t size() const {
         return amountElements;
     }
 
-    /**
-     * is HT empty
-     *
-     * @return true if HT empty
-     */
+/**
+ * is HT empty
+ *
+ * @return true if HT empty
+ */
     bool empty() const {
 
         return !size();
     }
 
-    /**
-     * empty the HT
-     */
+/**
+ * empty the HT
+ */
     void clear() {
 
         for (auto &b: storage) {

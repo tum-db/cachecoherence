@@ -83,8 +83,8 @@ private:
 
     void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
 
-    defs::GlobalAddress
-    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
+    defs::GlobalAddress sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
+
 
 
 public:

@@ -115,11 +115,10 @@ bool Node::sendLock(Lock lock, defs::IMMDATA immData, Connection &c) {
 
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
     c.rcqp->postWorkRequest(write);
+    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
-    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-
     cq.pollRecvWorkCompletionBlocking();
     auto result = reinterpret_cast<bool *>(recvbuf);
     return *result;
