@@ -43,6 +43,9 @@ private:
 
 
     std::vector<Elem *> storage;
+    typedef V* iterator;
+    typedef const V* const_iterator;
+
 
     uint32_t hashBucket(uint32_t key) const { return hash(key) % storage.size(); }
 
@@ -70,6 +73,7 @@ public:
     }
 
 
+    HashTable ( const HashTable & ) = default;
     /**
      * Destructor
      */
@@ -83,12 +87,13 @@ public:
      * @param key
      * @param value
      */
-    void insert(uint32_t key, V value) {
+    void insert(uint32_t key, V value, size_t size = sizeof(V)) {
         uint32_t b = hashBucket(key);
-        auto gadd = node->Malloc(sizeof(V), node->getID());
+        auto gadd = node->Malloc(size, node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        auto data = new defs::Data(sizeof(V), static_cast<uint64_t>(value), gadd);
+        auto castdata = reinterpret_cast<uint64_t *>(&value);
+        auto data = new defs::Data(sizeof(V), *castdata, gadd);
         node->write(data);
     }
 
@@ -137,7 +142,7 @@ public:
             if (bucket->key == key) {
                 auto value = node->read(bucket->gaddr);
                 auto result = reinterpret_cast<V *>(&value);
-                return *result;
+                return std::make_optional<V>(*result);
             }
             bucket = bucket->next;
         }
@@ -173,6 +178,16 @@ public:
         return *result;
 
     }
+
+    iterator begin() {
+        auto value = new uint64_t(node->read(storage[0]->gaddr));
+        return reinterpret_cast<V *>(value); }
+    const_iterator begin() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
+        return reinterpret_cast<V *>(value); }
+    iterator end() {  auto value = new uint64_t(node->read(storage[0]->gaddr));
+        return reinterpret_cast<V *>(value);  }
+    const_iterator end() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
+        return reinterpret_cast<V *>(value);  }
 
 
     /**

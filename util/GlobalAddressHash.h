@@ -23,6 +23,10 @@ template<class T> class GlobalAddressHash;
             return (h1 ^ (h2 ^(h3 ^  (h4<<1))));
         }
     };
+static uint64_t generateLockId(defs::SendGlobalAddr sga){
+    return GlobalAddressHash<defs::SendGlobalAddr>()(sga);
+}
+
 
 
 #endif //MEDMM_GLOBALADDRESSHASH_H

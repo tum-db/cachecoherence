@@ -198,6 +198,7 @@ $env:Path = \"$project_bin;$env:Path\"
 
   ############################################################
   # C++ tests built with standard compiler flags.
+  string(REPLACE " -Werror" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   cxx_test(googletest-death-test-test gtest_main)
   cxx_test(gtest_environment_test gtest)
@@ -230,6 +231,7 @@ $env:Path = \"$project_bin;$env:Path\"
 
   ############################################################
   # C++ tests built with non-standard compiler flags.
+  string(REPLACE " -Werror" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   # MSVC 7.1 does not support STL with exceptions disabled.
   if (NOT MSVC OR MSVC_VERSION GREATER 1310)

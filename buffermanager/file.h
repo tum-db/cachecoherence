@@ -17,6 +17,7 @@ public:
 
     virtual ~File() = default;
 
+
     /// Returns the `Mode` this file was opened with.
     virtual Mode get_mode() const = 0;
 

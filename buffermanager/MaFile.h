@@ -32,6 +32,8 @@ public:
 
     MaFile(const char *filename, Mode mode);
 
+    MaFile(const MaFile &ma) noexcept;
+
     ~MaFile() override {
         // Don't check return value here, as we don't want a throwing
         // destructor. Also, even when close() fails, the fd will always be
@@ -39,6 +41,7 @@ public:
         ::close(fd);
     }
 
+    MaFile &operator=(MaFile &&other) noexcept;
 
     Mode get_mode() const;
 
@@ -50,9 +53,9 @@ public:
 
     void write_block(const char *block, size_t offset, size_t size) override;
 
-    static std::unique_ptr<File> open_file(const char *filename, Mode mode);
+    static std::unique_ptr<MaFile> open_file(const char *filename, Mode mode);
 
-    static std::unique_ptr<File> make_temporary_file();
+    static std::unique_ptr<MaFile> make_temporary_file();
 
     void close();
 

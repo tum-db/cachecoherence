@@ -13,7 +13,8 @@
 TEST(BufferManagerTest, FixSingle) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
     std::vector<uint64_t> expected_values(1024 / sizeof(uint64_t), 123);
     {
         auto &page = buffer_manager.fix_page(1, true);
@@ -39,7 +40,8 @@ TEST(BufferManagerTest, FixSingle) {
 TEST(BufferManagerTest, PersistentRestart) {
     Node n = Node();
     n.setID(2000);
-    auto buffer_manager = std::make_unique<moderndbs::BufferManager>(1024, 10, &n);
+    auto buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 10, &n,
+                                                                     HashTable<moderndbs::BufferFrame>(&n));
     for (uint16_t segment = 0; segment < 3; ++segment) {
         for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
             uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
@@ -51,7 +53,8 @@ TEST(BufferManagerTest, PersistentRestart) {
         }
     }
 // Destroy the buffer manager and create a new one.
-    buffer_manager = std::make_unique<moderndbs::BufferManager>(1024, 10, &n);
+    buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 10, &n,
+                                                                HashTable<moderndbs::BufferFrame>(&n));
     for (uint16_t segment = 0; segment < 3; ++segment) {
         for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
             uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
@@ -69,7 +72,9 @@ TEST(BufferManagerTest, PersistentRestart) {
 TEST(BufferManagerTest, FIFOEvict) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
+
     for (uint64_t i = 1; i < 11; ++i) {
         auto &page = buffer_manager.fix_page(i, false);
         buffer_manager.unfix_page(page, false);
@@ -95,7 +100,9 @@ TEST(BufferManagerTest, FIFOEvict) {
 TEST(BufferManagerTest, BufferFull) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
+
     std::vector<moderndbs::BufferFrame *> pages;
     pages.reserve(10);
     for (uint64_t i = 1; i < 11; ++i) {
@@ -113,7 +120,9 @@ TEST(BufferManagerTest, BufferFull) {
 TEST(BufferManagerTest, MoveToLRU) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
+
     auto &fifo_page = buffer_manager.fix_page(1, false);
     auto *lru_page = &buffer_manager.fix_page(2, false);
     buffer_manager.unfix_page(fifo_page, false);
@@ -131,7 +140,9 @@ TEST(BufferManagerTest, MoveToLRU) {
 TEST(BufferManagerTest, LRURefresh) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
+
     auto *page1 = &buffer_manager.fix_page(1, false);
     buffer_manager.unfix_page(*page1, false);
     page1 = &buffer_manager.fix_page(1, false);
@@ -153,7 +164,9 @@ TEST(BufferManagerTest, LRURefresh) {
 TEST(BufferManagerTest, MultithreadParallelFix) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
+
     std::vector<std::thread> threads;
     for (size_t i = 0; i < 4; ++i) {
         threads.emplace_back([i, &buffer_manager] {
@@ -180,11 +193,12 @@ TEST(BufferManagerTest, MultithreadParallelFix) {
 TEST(BufferManagerTest, MultithreadExclusiveAccess) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
     {
         auto &page = buffer_manager.fix_page(0, true);
         ASSERT_TRUE(page.get_data());
-        std::memset(page.get_data(), 0, 1024);
+        std::memset(page.get_data(), 0, defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);
     }
     std::vector<std::thread> threads;
@@ -216,7 +230,8 @@ TEST(BufferManagerTest, MultithreadExclusiveAccess) {
 TEST(BufferManagerTest, MultithreadBufferFull) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
     std::atomic<uint64_t> num_buffer_full = 0;
     std::atomic<uint64_t> finished_threads = 0;
     std::vector<std::thread> threads;
@@ -252,7 +267,8 @@ TEST(BufferManagerTest, MultithreadBufferFull) {
 TEST(BufferManagerTest, MultithreadManyPages) {
     Node n = Node();
     n.setID(2000);
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
     std::vector<std::thread> threads;
     for (size_t i = 0; i < 4; ++i) {
         threads.emplace_back([i, &buffer_manager] {
@@ -276,16 +292,18 @@ TEST(BufferManagerTest, MultithreadManyPages) {
 TEST(BufferManagerTest, MultithreadReaderWriter) {
 
     Node n = Node();
-    n.setID(2000);  {
+    n.setID(2000);
+    {
 // Zero out all pages first
 
-        moderndbs::BufferManager buffer_manager{1024, 10, &n};
+        moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                                HashTable<moderndbs::BufferFrame>(&n)};
         for (uint16_t segment = 0; segment <= 3; ++segment) {
             for (uint64_t segment_page = 0; segment_page <= 100; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
                 auto &page = buffer_manager.fix_page(page_id, true);
                 ASSERT_TRUE(page.get_data());
-                std::memset(page.get_data(), 0, 1024);
+                std::memset(page.get_data(), 0, defs::MAX_BLOCK_SIZE);
                 buffer_manager.unfix_page(page, true);
             }
         }
@@ -293,7 +311,8 @@ TEST(BufferManagerTest, MultithreadReaderWriter) {
 // empty before running the actual test.
     }
 
-    moderndbs::BufferManager buffer_manager{1024, 10, &n};
+    moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
+                                            HashTable<moderndbs::BufferFrame>(&n)};
     std::atomic<size_t> aborts = 0;
     std::vector<std::thread> threads;
     for (size_t i = 0; i < 4; ++i) {

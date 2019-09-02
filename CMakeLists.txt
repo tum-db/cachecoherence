@@ -35,7 +35,7 @@ SET(LINK_LIBRARIES
 include_directories(include/libibverbscpp)
 include_directories(include/perfevent)
 add_subdirectory(include/googletest)
-#include_directories(include/googletest/include/gtest)
+include_directories(include/googletest/include/gtest)
 
 
 add_library(medmm STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})

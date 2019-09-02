@@ -19,10 +19,6 @@
 #include "../rdma/CompletionQueuePair.hpp"
 
 
-static uint64_t generateLockId(defs::SendGlobalAddr sga){
-    return GlobalAddressHash<defs::SendGlobalAddr>()(sga);
-}
-
 class Node {
 private:
     size_t allocated = 0;
@@ -56,7 +52,7 @@ private:
                      rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
-                     rdma::CompletionQueuePair &cq, Connection &c);
+                         rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, Connection &c);
@@ -87,8 +83,8 @@ private:
 
     void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
 
-    defs::GlobalAddress sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
-
+    defs::GlobalAddress
+    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
 
 
 public:

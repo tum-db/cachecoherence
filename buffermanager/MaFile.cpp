@@ -28,6 +28,19 @@ MaFile::MaFile(const char *filename, Mode mode) : mode(mode) {
     cached_size = read_size();
 }
 
+MaFile::MaFile(const MaFile &ma) noexcept {
+    mode = ma.mode;
+    fd = ma.fd;
+    cached_size = ma.cached_size;
+}
+
+MaFile &MaFile::operator=(MaFile &&other) noexcept {
+    mode = other.mode;
+    fd = other.fd;
+    cached_size = other.cached_size;
+    return *this;
+}
+
 moderndbs::File::Mode MaFile::get_mode() const {
     return mode;
 }
@@ -88,7 +101,7 @@ void MaFile::write_block(const char *block, size_t offset, size_t size) {
     }
 }
 
-std::unique_ptr<moderndbs::File> MaFile::make_temporary_file() {
+std::unique_ptr<MaFile> MaFile::make_temporary_file() {
     char file_template[] = ".tmpfile-XXXXXX";
     int fd = ::mkstemp(file_template);
     if (fd < 0) {
@@ -101,7 +114,7 @@ std::unique_ptr<moderndbs::File> MaFile::make_temporary_file() {
     return std::make_unique<MaFile>(File::WRITE, fd, 0);
 }
 
-std::unique_ptr<moderndbs::File>
+std::unique_ptr<MaFile>
 MaFile::open_file(const char *filename, moderndbs::File::Mode mode) {
     return std::make_unique<MaFile>(filename, mode);
 }
@@ -122,3 +135,5 @@ bool MaFile::enough_space(size_t offset, size_t size) {
     auto res = posix_fallocate(fd,offset,size);
     return res == 0;
 }
+
+
