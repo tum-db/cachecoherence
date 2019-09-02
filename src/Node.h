@@ -63,7 +63,7 @@ private:
     void handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
-    bool sendLock(Lock lock, defs::IMMDATA immData, Connection &c);
+    void sendLock(Lock lock, defs::IMMDATA immData, Connection &c, bool *result);
 
 
     defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID);
@@ -83,8 +83,9 @@ private:
 
     void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
 
-    defs::GlobalAddress
-    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
+    void
+    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block,
+                  defs::SendGlobalAddr *buffer);
 
 
 public:
@@ -97,9 +98,10 @@ public:
 
     void closeClientSocket(Connection &c);
 
-    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
+    void sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c, void *buffer);
 
-    defs::GlobalAddress sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
+    void sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c,
+                  defs::SendGlobalAddr *buffer);
 
     bool setLock(uint64_t lockId, LOCK_STATES state);
 

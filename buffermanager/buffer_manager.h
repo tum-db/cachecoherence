@@ -75,8 +75,8 @@ namespace moderndbs {
 public:
     BufferFrame(
         uint64_t page_id, char* data, list_position fifo_position, list_position lru_position
-    ) : page_id(page_id), data(data), fifo_position(fifo_position), lru_position(lru_position) {}
-
+    ) : page_id(page_id), data(data), fifo_position(fifo_position), lru_position(lru_position) {
+    }
         /// Returns a pointer to this page's data.
         char *get_data();
     };

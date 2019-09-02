@@ -49,6 +49,14 @@ int main(int, const char **args) {
 
         std::cout << "count should be 0: " << h.count(5) << std::endl;
         std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
+        h[30] = true;
+        std::cout << "size should be 3: " << h.size() << std::endl;
+        std::cout << "bool should be 1: " << h[30] << std::endl;
+        for(auto &v: h){
+            std::cout << "value: " << v << std::endl;
+        }
+
+
 
     }
     int serverStatus = 1;

@@ -15,17 +15,17 @@ TEST(BufferManagerTest, FixSingle) {
     n.setID(2000);
     moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
                                             HashTable<moderndbs::BufferFrame>(&n)};
-    std::vector<uint64_t> expected_values(1024 / sizeof(uint64_t), 123);
+    std::vector<uint64_t> expected_values(defs::MAX_BLOCK_SIZE / sizeof(uint64_t), 123);
     {
-        auto &page = buffer_manager.fix_page(1, true);
+        auto page = buffer_manager.fix_page(1, true);
         ASSERT_TRUE(page.get_data());
-        std::memcpy(page.get_data(), expected_values.data(), 1024);
+        std::memcpy(page.get_data(), expected_values.data(), defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);
         EXPECT_EQ(std::vector<uint64_t>{1}, buffer_manager.get_fifo_list());
         EXPECT_TRUE(buffer_manager.get_lru_list().empty());
     }
     {
-        std::vector<uint64_t> values(1024 / sizeof(uint64_t));
+        std::vector<uint64_t> values(defs::MAX_BLOCK_SIZE / sizeof(uint64_t));
         auto &page = buffer_manager.fix_page(1, false);
         std::memcpy(values.data(), page.get_data(), 1024);
         buffer_manager.unfix_page(page, true);

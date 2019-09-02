@@ -162,8 +162,11 @@ namespace moderndbs {
         }
         // Create a new page and don't insert it in the queues, yet.
         assert(pages.get(page_id).has_value() == 0);
-        pages.insert(page_id, BufferFrame(page_id, nullptr, fifo.end(), lru.end()));
-        auto &page = pages[page_id];
+        auto newpage = BufferFrame(page_id, nullptr, fifo.end(), lru.end());
+        pages.insert(page_id, newpage, sizeof(BufferFrame)+page_size);
+        auto page = pages[page_id];
+        std::cout << newpage.num_users <<", "<< newpage.state << std::endl;
+        std::cout << page.num_users <<", "<< page.state << std::endl;
         ++page.num_users;
 
         //  page.lock(true);
@@ -196,6 +199,11 @@ namespace moderndbs {
         //    node->setLock(generateLockId(page->gaddr.sendable(0)), LOCK_STATES::EXCLUSIVE);
 
         //   page.lock(exclusive);
+        pages[page_id] = page;
+        std::cout << "pagedata: " << page.data << std::endl;
+        auto test = pages[page_id];
+        std::cout << "pagedata: " << test.get_data() << std::endl;
+
         return page;
     }
 

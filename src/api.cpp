@@ -25,14 +25,13 @@ allocated = allocated + msize;
         auto port = defs::port;
         auto c = connectClientSocket(port);
 
-        auto res = sendAddress(defs::GlobalAddress{size, nullptr, 0, false}.sendable(srcID),
+        defs::SendGlobalAddr *sga = nullptr;
+        sendAddress(defs::GlobalAddress{size, nullptr, 0, false}.sendable(srcID),
                                defs::IMMDATA::MALLOC,
-                               c);
-
-        auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
+                               c, sga);
 
 
-        if (sga->id == 0 && sga->isFile) {
+        if (sga == nullptr) {
             throw std::runtime_error("No more free memory!");
 
             //TODO throw
@@ -67,7 +66,6 @@ allocated = allocated + msize;
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     if (isLocal(gaddr)) {
-        std::cout << "test" << std::endl;
 
         auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
 
@@ -77,13 +75,11 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
             !d->sharerNodes.empty()) {
             std::cout << d->data << ", " << d->iscached << ", " << d->ownerNode << ", "
                       << d->sharerNodes[0] << std::endl;
-            std::cout << "test2" << std::endl;
 
             broadcastInvalidations(d->sharerNodes, gaddr);
         }
         allocated = allocated - (sizeof(defs::SaveData) + gaddr.size);
         free(gaddr.ptr);
-        std::cout << "test3" << std::endl;
 
         gaddr.ptr = nullptr;
         gaddr.size = 0;
@@ -91,10 +87,10 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
     } else {
         auto port = defs::port;
         auto c = connectClientSocket(port);
+        defs::SendGlobalAddr *sga = nullptr;
 
-        auto res = sendAddress(gaddr.sendable(id), defs::IMMDATA::FREE, c);
+        sendAddress(gaddr.sendable(id), defs::IMMDATA::FREE, c, sga);
 
-        auto sga = reinterpret_cast<defs::SendGlobalAddr *>(res);
         auto add = defs::GlobalAddress(*sga);
 
         closeClientSocket(c);
@@ -104,7 +100,6 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
 
 uint64_t Node::read(defs::GlobalAddress gaddr) {
     if (setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::SHAREDLOCK)) {
-        std::cout << "reading..." << std::endl;
         auto result = performRead(gaddr, id);
         setLock(generateLockId(gaddr.sendable(0)), LOCK_STATES::UNLOCKED);
         return result->data;
@@ -131,8 +126,8 @@ defs::SaveData *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
 
             auto port = defs::port;
             auto c = connectClientSocket(port);
-
-            auto data = sendAddress(gaddr.sendable(srcID), defs::IMMDATA::READ, c);
+            void *data;
+            sendAddress(gaddr.sendable(srcID), defs::IMMDATA::READ, c, data);
 
             auto result = reinterpret_cast<defs::SaveData *>(data);
             auto newCacheItem = CacheItem{gaddr, result->data, std::chrono::system_clock::now(),
@@ -178,7 +173,8 @@ bool Node::setLock(uint64_t lockId, LOCK_STATES state) {
         }
     } else {
         auto c = connectClientSocket(defs::locknode);
-        auto res = sendLock(Lock{lockId, state}, defs::IMMDATA::LOCKS, c);
+        auto res = false;
+        sendLock(Lock{lockId, state}, defs::IMMDATA::LOCKS, c, &res);
         closeClientSocket(c);
         return res;
     }
@@ -226,12 +222,13 @@ defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
         cache.alterCacheItem(ci, data->ga);
         std::cout << ci.data << ", " << ci.globalAddress.ptr << std::endl;
 
-        auto result = sendData(data->sendable(srcID), defs::IMMDATA::WRITE, c);
+        defs::SendGlobalAddr *sga = nullptr;
+        sendData(data->sendable(srcID), defs::IMMDATA::WRITE, c, sga);
 
         std::cout << c.socket.get() << ", " << c.rcqp->getQPN() << std::endl;
 
         closeClientSocket(c);
-        return result;
+        return defs::GlobalAddress(*sga);
     }
 }
 
@@ -259,9 +256,10 @@ defs::GlobalAddress Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t 
         auto c = connectClientSocket(port);
         auto castdata = reinterpret_cast<uint64_t *>(data);
         auto senddata = defs::ReadFileData{gaddr.sendable(id), offset, size};
-        auto ga = sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, c, castdata);
+        defs::SendGlobalAddr *sga = nullptr;
+        sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, c, castdata, sga);
         closeClientSocket(c);
-        return ga;
+        return defs::GlobalAddress(*sga);
     }
 
 

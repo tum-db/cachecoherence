@@ -127,6 +127,8 @@ namespace defs {
         CACHE_DIRECTORY_STATE iscached;
         uint16_t ownerNode;
         std::vector<uint16_t> sharerNodes;
+
+        SaveData (const SaveData &) = default;
     };
 
 
