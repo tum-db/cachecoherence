@@ -192,10 +192,9 @@ defs::GlobalAddress Node::write(defs::Data *data) {
                 broadcastInvalidations(d->sharerNodes, data->ga);
             }
 
-            auto writtenData = new defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED,
+            new (data->ga.ptr)defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::UNSHARED,
                                                   id,
                                                   {}};
-            std::memcpy(data->ga.ptr, writtenData, sizeof(defs::SaveData));
             result = data->ga;
 
         } else {
@@ -209,10 +208,8 @@ defs::GlobalAddress Node::write(defs::Data *data) {
 
 defs::GlobalAddress Node::performWrite(defs::Data *data, uint16_t srcID) {
     if (isLocal(data->ga)) {
-        auto writtenData = defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS,
+        new (data->ga.ptr) defs::SaveData{data->data, defs::CACHE_DIRECTORY_STATE::EXCLUS,
                                           srcID, {}};
-
-        std::memcpy(data->ga.ptr, &writtenData, sizeof(writtenData));
         return data->ga;
     } else {
         auto port = defs::port;

@@ -21,10 +21,28 @@ Connection Node::connectClientSocket(uint16_t port) {
     }
     std::cout << "remoteAddr: " << &remoteAddr << ", socket: " << &c.socket << std::endl;
 
-    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
+    auto buffer = malloc(sizeof(remoteAddr)+sizeof(c.recvmr));
+    memcpy(buffer,&remoteAddr,sizeof(remoteAddr));
+    c.recvreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
+    c.sendreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
+
+    c.sendmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE*2, {});
+    c.recvmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE*2,
+                                  {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
+
+    c.remoteMr=ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(&remoteAddr+sizeof(remoteAddr)),
+                                                c.recvmr->getLkey()};
+    memcpy(buffer,&remoteAddr,sizeof(remoteAddr));
+    memcpy(*(buffer+sizeof(remoteAddr)),&remoteAddr,sizeof(remoteAddr));
+
+
+    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
+    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
 
     c.rcqp->connect(remoteAddr);
+
+
+
     return std::move(c);
 }
 
@@ -41,17 +59,9 @@ void Node::closeClientSocket(Connection &c) {
 void Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c, void * buffer) {
     auto &cq = network.getSharedCompletionQueue();
     auto size = sizeof(defs::SendGlobalAddr) + data.size;
-  //  std::cout << sizeof(data) + data.size << std::endl;
-    auto sendmr = network.registerMr(&data, size, {});
-    auto recvmr = network.registerMr(buffer, defs::BIGBADBUFFER_SIZE,
-                                     {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(buffer),
-                                                     recvmr->getRkey()};
 
-    l5::util::tcp::write(c.socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(c.socket, &remoteMr, sizeof(remoteMr));
-
-    auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteMr, immData);
+    std::memcpy(c.sendreg, &data, size);
+    auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, immData);
     c.rcqp->postWorkRequest(write);
 
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -61,6 +71,7 @@ void Node::sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connect
     c.rcqp->postRecvRequest(recv);
 
     cq.pollRecvWorkCompletionBlocking();
+    memcpy(buffer, c.recvreg, sizeof(defs::SendGlobalAddr));
 
 }
 

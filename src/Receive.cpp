@@ -6,21 +6,15 @@
 #include "Node.h"
 
 
+bool
+Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
 
-bool Node::receive(Connection &c) {
-    auto &cq = network.getSharedCompletionQueue();
-    auto recvbuf = malloc(defs::BIGBADBUFFER_SIZE * 2);
-    auto recvmr = network.registerMr(recvbuf, defs::BIGBADBUFFER_SIZE * 2,
-                                     {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvbuf),
-                                                     recvmr->getRkey()};
+    auto remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(c.recvreg),
+                                                     c.recvmr->getRkey()};
 
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
-
-    l5::util::tcp::write(c.socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(c.socket, &remoteMr, sizeof(remoteMr));
 
     auto wc = cq.pollRecvWorkCompletionBlocking();
     auto immData = wc.getImmData();
@@ -30,29 +24,29 @@ bool Node::receive(Connection &c) {
     switch (immData) {
         case defs::IMMDATA::MALLOC:  //immdata = 1, if it comes from another server
         {
-            handleAllocation(recvbuf, remoteMr, cq, c);
+            handleAllocation( remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::READ: //immdata = 2, if it is a read
         {
-            handleRead(recvbuf, remoteMr, cq, c);
+            handleRead(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::FREE://immdata = 3, it should be freed
         {
-            handleFree(recvbuf, remoteMr, cq, c);
+            handleFree(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::WRITE:  //immdata = 4, write
         {
-            res = handleWrite(recvbuf, remoteMr, cq, c);
+            res = handleWrite(remoteMr, cq, c);
             std::cout << "result of write: " << res << std::endl;
             break;
 
         }
         case defs::IMMDATA::LOCKS:  //immdata = 5, save lock
         {
-            handleLocks(recvbuf, remoteMr, cq, c);
+            handleLocks(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::RESET: //immdata = 6, reset state
@@ -62,24 +56,23 @@ bool Node::receive(Connection &c) {
             break;
         }
         case defs::IMMDATA::INVALIDATE: {
-            handleInvalidation(recvbuf, remoteMr, cq, c);
+            handleInvalidation(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::FILE: {
-            handleFile(recvbuf, remoteMr, cq, c);
-            free(recvbuf);
+            handleFile(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::MALLOCFILE: {
-            handleMallocFile(recvbuf, remoteMr, cq, c);
+            handleMallocFile(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::READFILE: {
-            handleReadFile(recvbuf, remoteMr, cq, c);
+            handleReadFile(remoteMr, cq, c);
             break;
         }
         case defs::IMMDATA::WRITEFILE: {
-            handleWriteFile(recvbuf, remoteMr, cq, c);
+            handleWriteFile(remoteMr, cq, c);
             break;
         }
         default: {
@@ -104,20 +97,33 @@ void Node::connectAndReceive(uint16_t port) {
     c.socket = l5::util::tcp::accept(soc);
     std::cout << "and accepted" << std::endl;
     soc.close();
+    c.recvreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
+    c.sendreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
 
-    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
+    c.sendmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE*2, {});
+    c.recvmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE*2,
+                                  {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
 
+    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
+    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
+
+    auto remoteMr =ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(&remoteAddr+sizeof(remoteAddr)),
+                                                    c.recvmr->getRkey()};
     c.rcqp->connect(remoteAddr);
+
+
+
+    auto &cq = network.getSharedCompletionQueue();
+
     bool connected = true;
     while (connected) {
-        connected = receive(c);
+        connected = receive(c, cq);
     }
 }
 
-void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleAllocation(ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, Connection &c) {
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto gaddr = defs::GlobalAddress(*sga);
 
     auto newgaddr = Malloc(gaddr.size, sga->srcID).sendable(sga->srcID);
@@ -128,9 +134,9 @@ void Node::handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remo
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
-void Node::handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress
+void Node::handleFree(ibv::memoryregion::RemoteAddress
 remoteAddr, rdma::CompletionQueuePair &cq, Connection &c) {
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto gaddr = defs::GlobalAddress(*sga);
     auto res = Free(gaddr).sendable(sga->srcID);
     auto sendmr = network.registerMr(&res, sizeof(defs::SendGlobalAddr), {});
@@ -139,9 +145,9 @@ remoteAddr, rdma::CompletionQueuePair &cq, Connection &c) {
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
-void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleLocks(ibv::memoryregion::RemoteAddress remoteAddr,
                        rdma::CompletionQueuePair &cq, Connection &c) {
-    auto l = reinterpret_cast<Lock *>(recvbuf);
+    auto l = reinterpret_cast<Lock *>(c.recvreg);
     auto lock = setLock(l->id, l->state);
     auto sendmr = network.registerMr(&lock, sizeof(bool), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
@@ -149,9 +155,9 @@ void Node::handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
-void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleRead(ibv::memoryregion::RemoteAddress remoteAddr,
                       rdma::CompletionQueuePair &cq, Connection &c) {
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto gaddr = defs::GlobalAddress(*sga);
     auto data = performRead(gaddr, sga->srcID);
     data->iscached = defs::CACHE_DIRECTORY_STATE::SHARED;
@@ -164,9 +170,9 @@ void Node::handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
 
 }
 
-bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+bool Node::handleWrite(ibv::memoryregion::RemoteAddress remoteAddr,
                        rdma::CompletionQueuePair &cq, Connection &c) {
-    auto senddata = reinterpret_cast<defs::SendingData *>(recvbuf);
+    auto senddata = reinterpret_cast<defs::SendingData *>(c.recvreg);
     std::cout << "Write, SendData: data: " << senddata->data << ", ga-ID: " << senddata->sga.id
               << ", ga-size:" << senddata->sga.size << ", ptr: " << senddata->sga.ptr << ", size: "
               << senddata->size << std::endl;
@@ -202,11 +208,11 @@ bool Node::handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAdd
 
 }
 
-void Node::handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleInvalidation( ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair &cq, Connection &c) {
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto res = cache.removeCacheItem(defs::GlobalAddress(*sga));
-  //  std::cout << "removed cacheitem" << std::endl;
+    //  std::cout << "removed cacheitem" << std::endl;
     auto sendmr = network.registerMr(&res, sizeof(uint64_t), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
@@ -229,7 +235,7 @@ void Node::handleReset(ibv::memoryregion::RemoteAddress
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair &cq,
                               std::vector<uint16_t> nodes, uint16_t srcID, Connection &c) {
-  //  std::cout << "going to prepareForInvalidate" << std::endl;
+    //  std::cout << "going to prepareForInvalidate" << std::endl;
     auto invalidation = data.ga.sendable(srcID);
     auto sendmr1 = network.registerMr(&invalidation, sizeof(defs::SendGlobalAddr), {});
     auto write1 = defs::createWriteWithImm(sendmr1->getSlice(), remoteAddr,
@@ -248,9 +254,9 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
 
 }
 
-void Node::handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleFile(ibv::memoryregion::RemoteAddress remoteAddr,
                       rdma::CompletionQueuePair &cq, Connection &c) {
-    auto fitmp = reinterpret_cast<defs::FileInfo *>(recvbuf);
+    auto fitmp = reinterpret_cast<defs::FileInfo *>(c.recvreg);
     auto fileinfo = new defs::FileInfo(*fitmp);
     std::cout << fileinfo->size << ", " << fileinfo->blocksize << std::endl;
 
@@ -271,7 +277,7 @@ void Node::handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
         auto wc = cq.pollRecvWorkCompletionBlocking();
         auto immData = wc.getImmData();
         try {
-            auto data = reinterpret_cast<uint64_t *>(recvbuf);
+            auto data = reinterpret_cast<uint64_t *>(c.recvreg);
             block = reinterpret_cast<char *>(data);
 
             file.write_block(block, offset, immData);
@@ -290,12 +296,12 @@ void Node::handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr
     file.close();
 }
 
-void Node::handleMallocFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleMallocFile(ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, Connection &c) {
     defs::SendGlobalAddr newgaddr{};
     std::cout << "mallocfile" << std::endl;
 
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(recvbuf);
+    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto filename = getNextFileName();
     auto nf = MaFile(filename, MaFile::Mode::WRITE);
 
@@ -311,9 +317,9 @@ void Node::handleMallocFile(void *recvbuf, ibv::memoryregion::RemoteAddress remo
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
-void Node::handleReadFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleReadFile(ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair &cq, Connection &c) {
-    auto rfd = reinterpret_cast<defs::ReadFileData *>(recvbuf);
+    auto rfd = reinterpret_cast<defs::ReadFileData *>(c.recvreg);
     auto gaddr = defs::GlobalAddress(rfd->sga);
     if (gaddr.isFile) {
         std::vector<char> block;
@@ -335,9 +341,9 @@ void Node::handleReadFile(void *recvbuf, ibv::memoryregion::RemoteAddress remote
 }
 
 
-void Node::handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+void Node::handleWriteFile( ibv::memoryregion::RemoteAddress remoteAddr,
                            rdma::CompletionQueuePair &cq, Connection &c) {
-    auto rfd = reinterpret_cast<defs::ReadFileData *>(recvbuf);
+    auto rfd = reinterpret_cast<defs::ReadFileData *>(c.recvreg);
     auto gaddr = defs::GlobalAddress(rfd->sga);
     if (gaddr.isFile) {
         auto ack = true;
@@ -353,7 +359,7 @@ void Node::handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remot
 
         cq.pollRecvWorkCompletionBlocking();
 
-        auto castdata = reinterpret_cast<uint64_t *>(recvbuf);
+        auto castdata = reinterpret_cast<uint64_t *>(c.recvreg);
 
         std::cout << castdata << std::endl;
         auto data = reinterpret_cast<char *>(castdata);

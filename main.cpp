@@ -102,7 +102,6 @@
 int main() {
     auto node = Node();
 
-
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
     std::cin >> servOcli;
@@ -143,8 +142,9 @@ int main() {
 
         std::cout << "Trying to Malloc" << std::endl;
         auto conn = node.connectClientSocket(3000);
-        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC,
-                                     conn);
+        auto recv = malloc(sizeof(defs::GlobalAddress));
+        node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC,conn,
+                                     recv);
         node.closeClientSocket(conn);
 
         auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
@@ -152,7 +152,7 @@ int main() {
         std::cout << "Got first GAddr: " << test->id << ", " << test->size << ", " << test->ptr
                   << std::endl;
 
-
+/*
         std::cout << "Trying to Malloc" << std::endl;
 
         auto test2 = node.Malloc(size, node.getID());
@@ -205,7 +205,7 @@ int main() {
         f.read_block(0, 900, readed);
         node.FprintF(readed, fileaddress, 900, 0);
 
-
+*/
     } else {
         std::cout << "This was no valid Number!" << std::endl;
     }

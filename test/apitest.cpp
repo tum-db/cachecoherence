@@ -34,7 +34,8 @@ int main(int, const char **args) {
         size_t size = sizeof(d);
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0, false);
-        auto recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn);
+        void *recv = malloc(sizeof(defs::GlobalAddress));
+        clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn, recv);
         clientnode.closeClientSocket(conn);
         auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
         std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;

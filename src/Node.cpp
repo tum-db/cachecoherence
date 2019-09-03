@@ -5,7 +5,8 @@
 #include "Node.h"
 
 #include <cstdlib>
-Node::Node() : network(), id(), locks(), cache() {
+Node::Node()
+        : network(), id(), locks(), cache() {
     id = 0;
 }
 

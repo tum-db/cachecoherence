@@ -21,6 +21,14 @@ public:
     std::unique_ptr<rdma::RcQueuePair> rcqp;
     l5::util::Socket socket;
 
+    std::unique_ptr<ibv::memoryregion::MemoryRegion> sendmr;
+    std::unique_ptr<ibv::memoryregion::MemoryRegion> recvmr;
+
+    char *recvreg;
+    char *sendreg;
+
+    ibv::memoryregion::RemoteAddress remoteMr;
+
 
 };
 

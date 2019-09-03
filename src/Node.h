@@ -27,40 +27,41 @@ private:
     std::unordered_map<uint64_t, LOCK_STATES> locks;
     Cache cache;
 
+
     uint16_t filenamesnbr = 0;
 
 
-    void handleLocks(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleLocks(ibv::memoryregion::RemoteAddress remoteAddr,
                      rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleAllocation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleAllocation(ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleMallocFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleMallocFile( ibv::memoryregion::RemoteAddress remoteAddr,
                           rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleFree(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleFree(ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleRead(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleRead(ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleReadFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleReadFile(ibv::memoryregion::RemoteAddress remoteAddr,
                         rdma::CompletionQueuePair &cq, Connection &c);
 
-    bool handleWrite(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    bool handleWrite(ibv::memoryregion::RemoteAddress remoteAddr,
                      rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleWriteFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleWriteFile(ibv::memoryregion::RemoteAddress remoteAddr,
                          rdma::CompletionQueuePair &cq, Connection &c);
 
-    void handleInvalidation(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleInvalidation(ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair &cq,
                      Connection &c);
 
-    void handleFile(void *recvbuf, ibv::memoryregion::RemoteAddress remoteAddr,
+    void handleFile(ibv::memoryregion::RemoteAddress remoteAddr,
                     rdma::CompletionQueuePair &cq, Connection &c);
 
     void sendLock(Lock lock, defs::IMMDATA immData, Connection &c, bool *result);
@@ -107,7 +108,7 @@ public:
 
     void connectAndReceive(uint16_t port);
 
-    bool receive(Connection &c);
+    bool receive(Connection &c, rdma::CompletionQueuePair &cq);
 
     defs::GlobalAddress Malloc(size_t size, uint16_t srcID);
 
