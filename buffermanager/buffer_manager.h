@@ -17,36 +17,12 @@
 
 namespace moderndbs {
 
-    class SegmentFile {
-    public:
-        SegmentFile() = default;
-
-/// This latch ensures that a call to size() followed by resize() is
-        /// executed atomically.
-        defs::GlobalAddress gaddr;
-        std::unique_ptr<MaFile> file;
-
-        explicit SegmentFile(std::unique_ptr<MaFile> file, defs::GlobalAddress gaddr) :
-                gaddr(gaddr), file{std::move(file)} {}
-
-        SegmentFile(const SegmentFile &sg) noexcept : gaddr(sg.gaddr), file() {
-            file = std::make_unique<MaFile>(*sg.file.get());
-        }
-
-        SegmentFile &operator=(SegmentFile &&other) noexcept {
-            gaddr = other.gaddr;
-            file = std::move(other.file);
-            return *this;
-        }
-
-    };
-
 
     class BufferFrame {
     private:
         friend class BufferManager;
 
-        using list_position = std::list<BufferFrame *>::iterator;
+        using list_position = std::list<uint64_t>::iterator;
 
         enum State {
             NEW = 0, LOADING = 1, LOADED = 2, EVICTING = 3, RELOADED = 4
@@ -102,7 +78,7 @@ namespace moderndbs {
             if (data == nullptr) {
                 sbf.data = 0;
             } else {
-                sbf.data = reinterpret_cast<uintptr_t >(data);
+                sbf.data = *reinterpret_cast<uint64_t *>(data);
             }
             sbf.state = state;
             sbf.num_users = num_users;
@@ -113,16 +89,17 @@ namespace moderndbs {
             return sbf;
         }
 
-        explicit BufferFrame(SaveBufferFrame sbf) {
-            page_id = sbf.page_id;
-            data = sbf.data == 0 ? const_cast<char *>("\0") : reinterpret_cast<char *>(&sbf.data);
-            data = reinterpret_cast<char *>(sbf.data);
-            state = sbf.state;
-            num_users = sbf.num_users;
-            is_dirty = sbf.is_dirty;
-            fifo_position = sbf.fifo_position;
-            lru_position = sbf.lru_position;
-            locked_exclusively = sbf.locked_exclusively;
+        explicit BufferFrame(SaveBufferFrame *sbf) {
+            page_id = sbf->page_id;
+            data = sbf->data == 0 ? const_cast<char *>("\0") : reinterpret_cast<char *>(&sbf->data);
+            std::cout << "data got from savebufferframe: "<<data << std::endl;
+
+            state = sbf->state;
+            num_users = sbf->num_users;
+            is_dirty = sbf->is_dirty;
+            fifo_position = sbf->fifo_position;
+            lru_position = sbf->lru_position;
+            locked_exclusively = sbf->locked_exclusively;
         }
 
         BufferFrame()= default;
@@ -156,7 +133,7 @@ namespace moderndbs {
 
         /// Maps segment ids to their files.
         //     HashTable<SegmentFile> segment_files;
-        std::unordered_map<uint16_t, SegmentFile> segment_files;
+        std::unordered_map<uint16_t, defs::GlobalAddress> segment_files;
 
         /// Maps page_ids to BufferFrame objects of all pages that are currently
         /// in memory.
@@ -164,10 +141,10 @@ namespace moderndbs {
         //  std::unordered_map<uint64_t, BufferFrame> pages;
 
         /// FIFO list of pages.
-        std::list<BufferFrame *> fifo;
+        std::list<uint64_t> fifo;
 
         /// LRU list of pages.
-        std::list<BufferFrame *> lru;
+        std::list<uint64_t> lru;
 
         /// Loads the page from disk. `latch` must be the locked directory latch.
         /// Unlocks `latch` while doing I/O.
@@ -179,7 +156,7 @@ namespace moderndbs {
 
         /// Returns the next page that can be evicted. Caller must hold
         /// directory_latch. When no page can be evicted, returns nullptr.
-        BufferFrame *find_page_to_evict();
+        BufferFrame find_page_to_evict();
 
         /// Evicts a page from the buffer manager. `latch` must be the locked
         /// directory latch. Returns the data pointer of the evicted page or
@@ -243,7 +220,7 @@ namespace moderndbs {
             return page_id & ((1ull << 48) - 1);
         }
 
-        void insert_data(BufferFrame &page, char * newdata);
+        void insert_data(BufferFrame &page, void * newdata, size_t size);
     };
 
 

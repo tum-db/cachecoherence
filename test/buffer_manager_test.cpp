@@ -19,8 +19,9 @@ TEST(BufferManagerTest, FixSingle) {
     {
         auto page = buffer_manager.fix_page(1, true);
         ASSERT_TRUE(page.get_data());
-        buffer_manager.insert_data(page, reinterpret_cast<char *>(expected_values.data()));
-      //  std::memcpy(page.get_data(), expected_values.data(), defs::MAX_BLOCK_SIZE);
+        std::cout << "test, expected values & size: " << *expected_values.data() << ", "<< expected_values.size() << std::endl;
+        buffer_manager.insert_data(page, expected_values.data(), defs::MAX_BLOCK_SIZE);
+        //  std::memcpy(page.get_data(), expected_values.data(), defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);
         EXPECT_EQ(std::vector<uint64_t>{1}, buffer_manager.get_fifo_list());
         EXPECT_TRUE(buffer_manager.get_lru_list().empty());
@@ -42,20 +43,22 @@ TEST(BufferManagerTest, PersistentRestart) {
     Node n = Node();
     n.setID(2000);
     auto buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 10, &n,
-                                                                     HashTable<moderndbs::BufferFrame::SaveBufferFrame>(&n));
+                                                                     HashTable<moderndbs::BufferFrame::SaveBufferFrame>(
+                                                                             &n));
     for (uint16_t segment = 0; segment < 3; ++segment) {
         for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
             uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
             auto page = buffer_manager->fix_page(page_id, true);
             ASSERT_TRUE(page.get_data());
-            uint64_t &value = *reinterpret_cast<uint64_t *>(page.get_data());
-            value = segment * 10 + segment_page;
+            auto value = const_cast<char *>(std::to_string(segment * 10 + segment_page).c_str());
+            buffer_manager->insert_data(page, value, defs::MAX_BLOCK_SIZE);
             buffer_manager->unfix_page(page, true);
         }
     }
 // Destroy the buffer manager and create a new one.
     buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 10, &n,
-                                                                HashTable<moderndbs::BufferFrame::SaveBufferFrame>(&n));
+                                                                HashTable<moderndbs::BufferFrame::SaveBufferFrame>(
+                                                                        &n));
     for (uint16_t segment = 0; segment < 3; ++segment) {
         for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
             uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
@@ -199,7 +202,7 @@ TEST(BufferManagerTest, MultithreadExclusiveAccess) {
     {
         auto page = buffer_manager.fix_page(0, true);
         ASSERT_TRUE(page.get_data());
-        buffer_manager.insert_data(page, nullptr);
+        buffer_manager.insert_data(page, 0, defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);
     }
     std::vector<std::thread> threads;
@@ -299,13 +302,14 @@ TEST(BufferManagerTest, MultithreadReaderWriter) {
 // Zero out all pages first
 
         moderndbs::BufferManager buffer_manager{defs::MAX_BLOCK_SIZE, 10, &n,
-                                                HashTable<moderndbs::BufferFrame::SaveBufferFrame>(&n)};
+                                                HashTable<moderndbs::BufferFrame::SaveBufferFrame>(
+                                                        &n)};
         for (uint16_t segment = 0; segment <= 3; ++segment) {
             for (uint64_t segment_page = 0; segment_page <= 100; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
                 auto page = buffer_manager.fix_page(page_id, true);
                 ASSERT_TRUE(page.get_data());
-                buffer_manager.insert_data(page, 0);
+                buffer_manager.insert_data(page, 0, defs::MAX_BLOCK_SIZE);
                 buffer_manager.unfix_page(page, true);
             }
         }

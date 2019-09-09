@@ -138,7 +138,10 @@ int main() {
             std::cout << "count should be 0: " << h.count(5) << std::endl;
             std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
 
+        for(auto i = h.begin(); i != h.end(); i++){
+            std::cout << "hallo" << std::endl;
 
+        }
 
         HashTable<Test> ht = HashTable<Test>(&node);
         ht.insert(1,  Test{5, 22323});
@@ -224,7 +227,7 @@ int main() {
         std::cout << "done, going to save a struct: " << std::endl;
         auto test3 = node.Malloc(sizeof(Test), node.getID());
         auto teststruct = Test{4, 2121};
-        auto structdata = new defs::Data(sizeof(Test), reinterpret_cast<uintptr_t >(&teststruct),
+        auto structdata = defs::Data(sizeof(Test), reinterpret_cast<uintptr_t >(&teststruct),
                                          test3);
 
         node.write(structdata);

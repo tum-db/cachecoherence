@@ -13,8 +13,10 @@ namespace defs {
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    constexpr size_t MAX_BLOCK_SIZE = 512 + 256 +128 +16; // 912, bigger generates error
+    constexpr size_t MAX_BLOCK_SIZE = 1024;//512 + 256 +128 +16; // 912, bigger generates error
     const uint16_t locknode = 2000;
+
+    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024*1024 *1024; //1024*100
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
 

@@ -57,6 +57,11 @@ int main(int, const char **args) {
         std::cout << "size should be 3: " << h.size() << std::endl;
         std::cout << "bool should be 1: " << h[30] << std::endl;
 
+        for(auto i = h.begin(); i != h.end(); i++){
+            std::cout << "hallo" << std::endl;
+
+        }
+
         HashTable<Test> ht = HashTable<Test>(&clientnode);
         ht.insert(1,  Test{5, 22323});
         ht.insert(2, Test{7,303209});
