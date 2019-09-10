@@ -31,38 +31,27 @@ private:
     uint16_t filenamesnbr = 0;
 
 
-    void handleLocks(ibv::memoryregion::RemoteAddress remoteAddr,
-                     rdma::CompletionQueuePair &cq, Connection &c);
+    void handleLocks(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleAllocation(ibv::memoryregion::RemoteAddress remoteAddr,
-                          rdma::CompletionQueuePair &cq, Connection &c);
+    void handleAllocation(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleMallocFile( ibv::memoryregion::RemoteAddress remoteAddr,
-                          rdma::CompletionQueuePair &cq, Connection &c);
+    void handleMallocFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleFree(ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair &cq, Connection &c);
+    void handleFree(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleRead(ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair &cq, Connection &c);
+    void handleRead(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleReadFile(ibv::memoryregion::RemoteAddress remoteAddr,
-                        rdma::CompletionQueuePair &cq, Connection &c);
+    void handleReadFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    bool handleWrite(ibv::memoryregion::RemoteAddress remoteAddr,
-                     rdma::CompletionQueuePair &cq, Connection &c);
+    bool handleWrite(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleWriteFile(ibv::memoryregion::RemoteAddress remoteAddr,
-                         rdma::CompletionQueuePair &cq, Connection &c);
+    void handleWriteFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleInvalidation(ibv::memoryregion::RemoteAddress remoteAddr,
-                            rdma::CompletionQueuePair &cq, Connection &c);
+    void handleInvalidation(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleReset(ibv::memoryregion::RemoteAddress remoteAddr, rdma::CompletionQueuePair &cq,
-                     Connection &c);
+    void handleReset(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleFile(ibv::memoryregion::RemoteAddress remoteAddr,
-                    rdma::CompletionQueuePair &cq, Connection &c);
+    void handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
     void sendLock(Lock lock, defs::IMMDATA immData, Connection &c, bool *result);
 
@@ -87,7 +76,6 @@ private:
     void
     sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block,
                   defs::SendGlobalAddr *buffer);
-
 
 
 public:

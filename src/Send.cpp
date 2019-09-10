@@ -30,14 +30,17 @@ Connection Node::connectClientSocket(uint16_t port) {
     c.recvmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE*2,
                                   {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
 
-    c.remoteMr=ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(&remoteAddr+sizeof(remoteAddr)),
-                                                c.recvmr->getLkey()};
-    memcpy(buffer,&remoteAddr,sizeof(remoteAddr));
-    memcpy(*(buffer+sizeof(remoteAddr)),&remoteAddr,sizeof(remoteAddr));
+
 
 
     l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
     l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr)+sizeof(c.recvmr));
+
+    c.remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(c.recvreg),
+                                                     c.recvmr->getRkey()};
+
+    l5::util::tcp::write(c.socket, &c.remoteMr, sizeof(c.remoteMr));
+    l5::util::tcp::read(c.socket, &c.remoteMr, sizeof(c.remoteMr));
 
     c.rcqp->connect(remoteAddr);
 
