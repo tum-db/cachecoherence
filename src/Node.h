@@ -67,7 +67,7 @@ private:
     void sendLock(Lock lock, defs::IMMDATA immData, Connection &c, bool *result);
 
 
-    defs::GlobalAddress performWrite(defs::Data *data, uint16_t srcID);
+    defs::GlobalAddress performWrite(defs::Data data, uint16_t srcID);
 
     defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
@@ -87,6 +87,7 @@ private:
     void
     sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block,
                   defs::SendGlobalAddr *buffer);
+
 
 
 public:
@@ -114,7 +115,7 @@ public:
 
     defs::GlobalAddress Free(defs::GlobalAddress gaddr);
 
-    defs::GlobalAddress write(defs::Data *data);
+    defs::GlobalAddress write(defs::Data data);
 
     defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset);
 

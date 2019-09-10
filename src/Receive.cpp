@@ -188,7 +188,7 @@ bool Node::handleWrite(ibv::memoryregion::RemoteAddress remoteAddr,
                                c);
             return false;
         } else {
-            auto result = performWrite(&data, senddata->sga.srcID).sendable(
+            auto result = performWrite(data, senddata->sga.srcID).sendable(
                     senddata->sga.srcID);
             auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
             auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
@@ -197,7 +197,7 @@ bool Node::handleWrite(ibv::memoryregion::RemoteAddress remoteAddr,
             cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
         }
     } else {
-        auto result = performWrite(&data, senddata->sga.srcID).sendable(senddata->sga.srcID);
+        auto result = performWrite(data, senddata->sga.srcID).sendable(senddata->sga.srcID);
         auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
         auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
                                               defs::IMMDATA::DEFAULT);
@@ -242,7 +242,7 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
                                            defs::IMMDATA::INVALIDATE);
     c.rcqp->postWorkRequest(write1);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    auto result = performWrite(&data, srcID).sendable(srcID);
+    auto result = performWrite(data, srcID).sendable(srcID);
     auto sendmr = network.registerMr(&result, sizeof(defs::SendGlobalAddr), {});
     auto write = defs::createWriteWithImm(sendmr->getSlice(), remoteAddr,
                                           defs::IMMDATA::DEFAULT);

@@ -6,6 +6,11 @@
 #include "app/HashTable.h"
 
 
+struct __attribute__ ((packed)) Test {
+    uint16_t value;
+    uint64_t data;
+};
+
 /*int main() {
     static size_t TIMEOUT_IN_SECONDS = 5;
 
@@ -113,7 +118,7 @@ int main() {
         }
     } else if (servOcli == 1) {
         node.setID(2000);
-        /*    HashTable<bool> h = HashTable<bool>(&node);
+            HashTable<bool> h = HashTable<bool>(&node);
 
             h.insert(4,false);
             std::cout << "bool should be 0: " << h[4] << std::endl;
@@ -132,10 +137,23 @@ int main() {
             std::cout << "count should be 0: " << h.count(5) << std::endl;
             std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
 
-*/
+        for(auto i = h.begin(); i != h.end(); i++){
+            std::cout << "hallo" << std::endl;
 
+        }
 
+        HashTable<Test> ht = HashTable<Test>(&node);
+        ht.insert(1,  Test{5, 22323});
+        ht.insert(2,  Test{7,303209});
+        std::cout << "size should be 2: " << ht.size() << std::endl;
 
+        std::cout << "data 1: " << ht[1].value << ", " << ht[1].data << std::endl;
+        std::cout << "data 2: " << ht[2].value << ", " << ht[2].data << std::endl;
+        auto res1 = ht[1];
+        auto res2 = ht[2];
+        std::cout << "data 1: " << res1.value << ", " << res1.data << std::endl;
+        std::cout << "data 2: " << res2.value << ", " << res2.data << std::endl;
+/*
         uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
         size_t size = sizeof(d);
         auto firstgaddr = defs::GlobalAddress(size, nullptr, 0, 0);
@@ -195,8 +213,8 @@ int main() {
 //        auto filea = node.sendAddress(fa.sendable(node.getID()), defs::IMMDATA::MALLOCFILE, conn2);
 //        node.closeClientSocket(conn2);
 //        auto filesga = reinterpret_cast<defs::SendGlobalAddr *>(filea);
-        std::cout <<"done malloc, gonna write to file" << std::endl;
-        char * filename = node.getNextFileName();
+        std::cout << "done malloc, gonna write to file" << std::endl;
+        char *filename = node.getNextFileName();
         auto fileaddress = defs::GlobalAddress(900, filename, node.getID(), true);
         auto f = MaFile("test", moderndbs::File::READ);
         std::vector<char> block;
@@ -206,6 +224,23 @@ int main() {
         node.FprintF(readed, fileaddress, 900, 0);
 
 */
+
+        std::cout << "done, going to save a struct: " << std::endl;
+        auto test3 = node.Malloc(sizeof(Test), node.getID());
+        auto teststruct = Test{4, 2121};
+        auto structdata = defs::Data(sizeof(Test), reinterpret_cast<uintptr_t >(&teststruct),
+                                         test3);
+
+        node.write(structdata);
+
+
+        std::cout << "Done. Trying to Read Written Data" << std::endl;
+        auto structres = node.read(test3);
+        std::cout << "Done. Result: ";
+        auto casstructres = reinterpret_cast<Test*>(structres);
+        std::cout << casstructres->value << ", " << casstructres->data << std::endl;
+
+
     } else {
         std::cout << "This was no valid Number!" << std::endl;
     }

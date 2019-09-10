@@ -13,7 +13,10 @@
 
 static size_t MESSAGES = 4 * 1024; // ~ 1s
 static size_t TIMEOUT_IN_SECONDS = 5;
-
+struct __attribute__ ((packed)) Test {
+    uint16_t value;
+    uint64_t data;
+};
 int main(int, const char **args) {
     if (std::string(args[0]).find("hashtabletest") != std::string::npos) {
         MESSAGES *= 32;
@@ -33,13 +36,13 @@ int main(int, const char **args) {
         clientnode.setID(2000);
         HashTable<bool> h = HashTable<bool>(&clientnode);
 
-        h.insert(4, false);
+        h.insert(4, new bool(false));
         std::cout << "bool should be 0: " << h[4] << std::endl;
 
         std::cout << "bool should be 0: " << h.get(4).value_or("nope") << std::endl;
         std::cout << "size should be 1: " << h.size() << std::endl;
-        h.insert(5, true);
-        h.insert(6, false);
+        h.insert(5, new bool(false));
+        h.insert(6, new bool(false));
         std::cout << "size should be 3: " << h.size() << std::endl;
 
         std::cout << "bool should be 1: " << h[5] << std::endl;
@@ -55,6 +58,30 @@ int main(int, const char **args) {
         for(auto &v: h){
             std::cout << "value: " << v << std::endl;
         }
+
+
+
+        h.insert(30, new bool(true));
+        std::cout << "size should be 3: " << h.size() << std::endl;
+        std::cout << "bool should be 1: " << h[30] << std::endl;
+
+        for(auto i = h.begin(); i != h.end(); i++){
+            std::cout << "hallo" << std::endl;
+
+        }
+
+        HashTable<Test> ht = HashTable<Test>(&clientnode);
+        ht.insert(1,  Test{5, 22323});
+        ht.insert(2, Test{7,303209});
+        std::cout << "size should be 2: " << ht.size() << std::endl;
+
+        std::cout << "data 1: " << ht[1].value << ", " << ht[1].data << std::endl;
+        std::cout << "data 2: " << ht[2].value << ", " << ht[2].data << std::endl;
+        auto res1 = ht[1];
+        auto res2 = ht[2];
+        std::cout << "data 1: " << res1.value << ", " << res1.data << std::endl;
+        std::cout << "data 2: " << res2.value << ", " << res2.data << std::endl;
+
 
 
 

@@ -17,43 +17,21 @@
 
 namespace moderndbs {
 
-    class SegmentFile {
-    public:
-        SegmentFile() = default;
-
-/// This latch ensures that a call to size() followed by resize() is
-        /// executed atomically.
-        defs::GlobalAddress gaddr;
-        std::unique_ptr<MaFile> file;
-
-        explicit SegmentFile(std::unique_ptr<MaFile> file, defs::GlobalAddress gaddr) :
-                gaddr(gaddr), file{std::move(file)} {}
-
-        SegmentFile(const SegmentFile &sg) noexcept : gaddr(sg.gaddr), file() {
-            file = std::make_unique<MaFile>(*sg.file.get());
-        }
-
-        SegmentFile &operator=(SegmentFile &&other) noexcept {
-            gaddr = other.gaddr;
-            file = std::move(other.file);
-            return *this;
-        }
-
-    };
 
     class BufferFrame {
     private:
         friend class BufferManager;
 
-        using list_position = std::list<BufferFrame *>::iterator;
+        using list_position = std::list<uint64_t>::iterator;
 
         enum State {
-            NEW, LOADING, LOADED, EVICTING, RELOADED
+            NEW = 0, LOADING = 1, LOADED = 2, EVICTING = 3, RELOADED = 4
         };
 
-    uint64_t page_id;
-    char* data;
-    State state = NEW;
+        uint64_t page_id;
+        char *data;
+        State state = NEW;
+
 
         /// How many times this page has been fixed.
         size_t num_users = 0;
@@ -71,14 +49,62 @@ namespace moderndbs {
         bool locked_exclusively = false;
 
 
+    public:
+        struct SaveBufferFrame {
 
-public:
-    BufferFrame(
-        uint64_t page_id, char* data, list_position fifo_position, list_position lru_position
-    ) : page_id(page_id), data(data), fifo_position(fifo_position), lru_position(lru_position) {
-    }
+            uint64_t page_id;
+            uint64_t data;
+            State state;
+            size_t num_users;
+            bool is_dirty;
+            list_position fifo_position;
+            list_position lru_position;
+            bool locked_exclusively;
+
+        };
+
+
+        BufferFrame(
+                uint64_t page_id, char *data, list_position fifo_position,
+                list_position lru_position
+        ) : page_id(page_id), data(data), fifo_position(fifo_position), lru_position(lru_position) {
+        }
+
         /// Returns a pointer to this page's data.
         char *get_data();
+
+        SaveBufferFrame sendable() {
+            SaveBufferFrame sbf = {};
+            sbf.page_id = page_id;
+            if (data == nullptr) {
+                sbf.data = 0;
+            } else {
+                sbf.data = *reinterpret_cast<uint64_t *>(data);
+            }
+            sbf.state = state;
+            sbf.num_users = num_users;
+            sbf.is_dirty = is_dirty;
+            sbf.fifo_position = fifo_position;
+            sbf.lru_position = lru_position;
+            sbf.locked_exclusively = locked_exclusively;
+            return sbf;
+        }
+
+        explicit BufferFrame(SaveBufferFrame *sbf) {
+            page_id = sbf->page_id;
+            data = sbf->data == 0 ? const_cast<char *>("\0") : reinterpret_cast<char *>(&sbf->data);
+            std::cout << "data got from savebufferframe: "<<data << std::endl;
+
+            state = sbf->state;
+            num_users = sbf->num_users;
+            is_dirty = sbf->is_dirty;
+            fifo_position = sbf->fifo_position;
+            lru_position = sbf->lru_position;
+            locked_exclusively = sbf->locked_exclusively;
+        }
+
+        BufferFrame()= default;
+
     };
 
 
@@ -107,19 +133,19 @@ public:
         std::unique_ptr<char[]> loaded_pages;
 
         /// Maps segment ids to their files.
-   //     HashTable<SegmentFile> segment_files;
-        std::unordered_map<uint16_t, SegmentFile> segment_files;
+        //     HashTable<SegmentFile> segment_files;
+        std::unordered_map<uint16_t, defs::GlobalAddress> segment_files;
 
         /// Maps page_ids to BufferFrame objects of all pages that are currently
         /// in memory.
-        HashTable<BufferFrame> pages;
+        HashTable<BufferFrame::SaveBufferFrame> pages;
         //  std::unordered_map<uint64_t, BufferFrame> pages;
 
         /// FIFO list of pages.
-        std::list<BufferFrame *> fifo;
+        std::list<uint64_t> fifo;
 
         /// LRU list of pages.
-        std::list<BufferFrame *> lru;
+        std::list<uint64_t> lru;
 
         /// Loads the page from disk. `latch` must be the locked directory latch.
         /// Unlocks `latch` while doing I/O.
@@ -131,7 +157,7 @@ public:
 
         /// Returns the next page that can be evicted. Caller must hold
         /// directory_latch. When no page can be evicted, returns nullptr.
-        BufferFrame *find_page_to_evict();
+        BufferFrame find_page_to_evict();
 
         /// Evicts a page from the buffer manager. `latch` must be the locked
         /// directory latch. Returns the data pointer of the evicted page or
@@ -146,7 +172,8 @@ public:
         /// @param[in] page_size  Size in bytes that all pages will have.
         /// @param[in] page_count Maximum number of pages that should reside in
         //                        memory at the same time.
-        BufferManager(size_t page_size, size_t page_count, Node *n, HashTable<BufferFrame> pages);
+        BufferManager(size_t page_size, size_t page_count, Node *n,
+                      HashTable<BufferFrame::SaveBufferFrame> pages);
 
         /// Destructor. Writes all dirty pages to disk.
         ~BufferManager();
@@ -165,12 +192,12 @@ public:
         /// @param[in] exclusive If `exclusive` is true, the page is locked
         ///                      exclusively. Otherwise it is locked
         ///                      non-exclusively (shared).
-        BufferFrame &fix_page(uint64_t page_id, bool exclusive);
+        BufferFrame fix_page(uint64_t page_id, bool exclusive);
 
         /// Takes a `BufferFrame` reference that was returned by an earlier call to
         /// `fix_page()` and unfixes it. When `is_dirty` is / true, the page is
         /// written back to disk eventually.
-        void unfix_page(BufferFrame &page, bool is_dirty);
+        void unfix_page(BufferFrame page, bool is_dirty);
 
         /// Returns the page ids of all pages (fixed and unfixed) that are in the
         /// FIFO list in FIFO order.
@@ -193,6 +220,8 @@ public:
         static constexpr uint64_t get_segment_page_id(uint64_t page_id) {
             return page_id & ((1ull << 48) - 1);
         }
+
+        void insert_data(BufferFrame &page, void * newdata, size_t size);
     };
 
 

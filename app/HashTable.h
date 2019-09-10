@@ -15,15 +15,12 @@
 #include <cmath>
 
 
-const uint32_t amountNodes = 3;
-const uint16_t ns[] = {2000, 3000, 4000};
-
 template<typename V>
 class HashTable {
 private:
     Node *node;
 
-    static constexpr uint32_t hash(uint32_t key) {
+    static constexpr uint64_t hash(uint64_t key) {
         key = (key ^ 61) ^ (key >> 16);
         key = key + (key << 3);
         key = key ^ (key >> 4);
@@ -33,21 +30,82 @@ private:
     }
 
     struct Elem {
-        uint32_t key;
+        uint64_t key;
         defs::GlobalAddress gaddr;
         Elem *next;
+
+        bool operator==(const Elem &a) {
+            return (a.next == next) && (a.gaddr.size == gaddr.size) &&
+                   (a.gaddr.isFile == gaddr.isFile) && (a.gaddr.id == gaddr.id) &&
+                   (a.gaddr.ptr == gaddr.ptr) && (a.key == key);
+        }
     };
 
+    struct Iter {
+
+        Elem *e;
+        std::vector<Elem *> store;
+        Node *node;
+        uintptr_t value;
+
+        Iter(Elem *el, std::vector<Elem *> &s, Node *n, uint64_t v) {
+            e = el;
+            store =s;
+            node = n;
+            value = v;
+        }
+
+        bool operator==(const Iter &a) {
+            return (e->next == a.e->next) && (a.e->gaddr.size == e->gaddr.size) &&
+                   (a.e->gaddr.isFile == e->gaddr.isFile) && (a.e->gaddr.id == e->gaddr.id) &&
+                   (a.e->gaddr.ptr == e->gaddr.ptr) && (a.e->key == e->key);
+        }
+
+        bool operator!=(const Iter &a) {
+            return !operator==(a);
+        }
+
+        V *operator*() {
+            return reinterpret_cast<V *>(value);
+        }
+
+        Iter &operator++() {
+            if (e->next != nullptr) {
+                e = e->next;
+            } else {
+                Elem *tmp = new Elem{};
+                for (auto &b: store) {
+                    if (b != nullptr) {
+                        std::cout <<"key of next value: " <<  b->key << std::endl;
+                        if (e == tmp) {
+                            e = b;
+                            break;
+                        }
+                        tmp = b;
+                    }
+                }
+            }
+            value = node->read(e->gaddr);
+
+            return *this;
+        }
+
+        Iter operator++(int) {
+            Iter ret = *this;
+            this->operator++();
+            return ret;
+        }
+
+
+    };
 
     std::size_t amountElements = 0;
 
 
     std::vector<Elem *> storage;
-    typedef V* iterator;
-    typedef const V* const_iterator;
 
 
-    uint32_t hashBucket(uint32_t key) const { return hash(key) % storage.size(); }
+    uint64_t hashBucket(uint64_t key) const { return hash(key) % storage.size(); }
 
 public:
     /**
@@ -57,23 +115,12 @@ public:
     explicit HashTable(Node *n) {
         node = n;
         storage.resize(64);
-        // buckets = new std::array<Buck, amountNodes>;
-//        uint32_t lb = 0;
-//        uint32_t ub = 0;
-//        for (int i = 0; i < amountNodes; ++i) {
-//            if(i == amountNodes-1){
-//                ub = std::numeric_limits<uint32_t>::max();
-//            } else {
-//                ub = lb + std::numeric_limits<uint32_t>::max()/ amountNodes;
-//            }
-//            buckets[i] = HashBucket<V>(ns[i], lb, ub);
-//            lb = ub;
-//            std::cout << buckets[i].getId() << ", " << buckets[i].getLb() << ", " << buckets[i].getUb() << std::endl;
-//        }
+
     }
 
 
-    HashTable ( const HashTable & ) = default;
+    HashTable(const HashTable &) = default;
+
     /**
      * Destructor
      */
@@ -87,13 +134,15 @@ public:
      * @param key
      * @param value
      */
-    void insert(uint32_t key, V value, size_t size = sizeof(V)) {
-        uint32_t b = hashBucket(key);
+    void insert(uint64_t key, V value, size_t size = sizeof(V)) {
+        uint64_t b = hashBucket(key);
         auto gadd = node->Malloc(size, node->getID());
+        std::cout <<"size and pointer of insert: "<< gadd.size << ", " << gadd.ptr << std::endl;
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        auto castdata = reinterpret_cast<uint64_t *>(&value);
-        auto data = new defs::Data(sizeof(V), *castdata, gadd);
+        auto storevalue = new V(value);
+        auto castdata = reinterpret_cast<uintptr_t >(storevalue);
+        auto data = defs::Data(size, castdata, gadd);
         node->write(data);
     }
 
@@ -106,8 +155,8 @@ public:
     * @param key
     */
 
-    void erase(uint32_t key) {
-        uint32_t b = hashBucket(key);
+    void erase(uint64_t key) {
+        uint64_t b = hashBucket(key);
         Elem *bucket = storage[b];
         Elem *oldBucket = nullptr;
         while (bucket != nullptr) {
@@ -135,13 +184,13 @@ public:
     * @param key
     * @return optional containing the element or nothing if not exists
     */
-    std::optional<V> get(uint32_t key) {
-        uint32_t b = hashBucket(key);
+    std::optional<V> get(uint64_t key) {
+        uint64_t b = hashBucket(key);
         Elem *bucket = storage[b];
         while (bucket != nullptr) {
             if (bucket->key == key) {
                 auto value = node->read(bucket->gaddr);
-                auto result = reinterpret_cast<V *>(&value);
+                auto result = reinterpret_cast<V *>(value);
                 return std::make_optional<V>(*result);
             }
             bucket = bucket->next;
@@ -158,72 +207,119 @@ public:
     * @param key
     * @return reference to HT element
     */
-    V &operator[](uint32_t key) {
-        uint32_t b = hashBucket(key);
+    V &operator[](uint64_t key) {
+        uint64_t b = hashBucket(key);
         Elem *bucket = storage[b];
         while (bucket != nullptr) {
             if (bucket->key == key) {
                 auto addr = bucket->gaddr;
-                uint64_t value = node->read(addr);
-                auto result = reinterpret_cast<V *>(&value);
+                auto value = node->read(addr);
+                auto result = reinterpret_cast<V *>(value);
                 return *result;
             }
             bucket = bucket->next;
         }
+        std::cout << "creating new value in []" << std::endl;
         auto gadd = node->Malloc(sizeof(V), node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         uint64_t value = node->read(gadd);
-        auto result = reinterpret_cast<V *>(&value);
+        auto result = reinterpret_cast<V *>(value);
         return *result;
 
     }
 
-    iterator begin() {
-        auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value); }
-    const_iterator begin() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value); }
-    iterator end() {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value);  }
-    const_iterator end() const {  auto value = new uint64_t(node->read(storage[0]->gaddr));
-        return reinterpret_cast<V *>(value);  }
+
+    Iter *begin() {
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                auto res = new Iter(b, storage, node, node->read(b->gaddr));
+                std::cout << "res " << res << std::endl;
+                return res;
+            }
+        }
+        return nullptr;
+    }
+
+    Iter *begin() const {
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                auto res = new Iter(b, storage, node, node->read(b->gaddr));
+                std::cout << "res const " << res << std::endl;
+                return res;            }
+        }
+        return nullptr;
+    }
+
+    Iter *end() {
+        Elem *value = nullptr;
+        for (auto &b: storage) {
+            if (b != nullptr) {
+
+                while(b->next != nullptr) {
+                    b = b->next;
+                }
+                value = b;
+            }
+        }
+        if (value != nullptr) {
+            return new Iter(value, storage, node, node->read(value->gaddr));
+        }
+        return nullptr;
+
+    }
+
+    Iter *end() const {
+        Elem *value = nullptr;
+        for (auto &b: storage) {
+            if (b != nullptr) {
+                while(b->next != nullptr) {
+                    b = b->next;
+                }
+                value = b;
+            }
+        }
+        if (value != nullptr) {
+            return new Iter(value, storage, node, node->read(value->gaddr));
+        }
+        return nullptr;
+    }
 
 
-    /**
-     * get count of contained elements
-     *
-     * used for containment check
-     *
-     * @param key
-     * @return 0 if not contained, 1 if contained
-     */
-    uint64_t count(uint32_t key) {
+/**
+ * get count of contained elements
+ *
+ * used for containment check
+ *
+ * @param key
+ * @return 0 if not contained, 1 if contained
+ */
+    uint64_t count(uint64_t key) {
         return get(key).has_value();
     }
 
-    /**
-     * get number of stored element
-     *
-     * @return HT size
-     */
+/**
+ * get number of stored element
+ *
+ * @return HT size
+ */
     std::size_t size() const {
         return amountElements;
     }
 
-    /**
-     * is HT empty
-     *
-     * @return true if HT empty
-     */
+/**
+ * is HT empty
+ *
+ * @return true if HT empty
+ */
     bool empty() const {
 
         return !size();
     }
 
-    /**
-     * empty the HT
-     */
+/**
+ * empty the HT
+ */
     void clear() {
 
         for (auto &b: storage) {

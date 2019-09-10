@@ -41,7 +41,7 @@ int main(int, const char **args) {
         std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
         auto data = defs::Data(sizeof(uint64_t), d, *test);
         std::cout << "Trying to Write, data: " << d << std::endl;
-        clientnode.write(&data);
+        clientnode.write(data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = clientnode.read(*test);
         std::cout << "Done. Result: ";
@@ -49,7 +49,7 @@ int main(int, const char **args) {
         auto result1 = clientnode.read(*test);
         std::cout << "Done. Result: "<< reinterpret_cast<char *>(result1) << ", and now changing to 1337"<<std::endl;
         auto newint = uint64_t(1337);
-        auto newdata = new defs::Data{sizeof(uint64_t), newint, *test};
+        auto newdata = defs::Data{sizeof(uint64_t), newint, *test};
         clientnode.write(newdata);
         auto result2 = clientnode.read(*test);
         std::cout << "Done. Result: "<< result2 << std::endl;
