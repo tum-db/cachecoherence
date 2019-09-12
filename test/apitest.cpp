@@ -30,34 +30,33 @@ int main(int, const char **args) {
         auto clientnode = Node();
         clientnode.setID(2000);
         auto conn = clientnode.connectClientSocket(3000);
-        uint64_t d = reinterpret_cast<uint64_t >("Servus"); // need to cast data to uint64_t
-        size_t size = sizeof(d);
+        char* d = "Servus"; // need to cast data to uint64_t
+        size_t size = strlen(d)*sizeof(char)+1;
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0, false);
-        void *recv = malloc(sizeof(defs::GlobalAddress));
-        clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn, recv);
+        void *recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn);
         clientnode.closeClientSocket(conn);
-        auto test = reinterpret_cast<defs::GlobalAddress *>(recv);
-        std::cout << "Got GAddr: " << test->id << ", " << test->size <<", " << test->ptr << std::endl;
-        auto data = defs::Data(sizeof(uint64_t), d, *test);
+        auto test = defs::GlobalAddress(*reinterpret_cast<defs::SendGlobalAddr *>(recv));
+        std::cout << "Got GAddr: " << test.id << ", " << test.size <<", " << test.ptr << std::endl;
+        auto data = defs::Data(sizeof(uint64_t), d, test);
         std::cout << "Trying to Write, data: " << d << std::endl;
         clientnode.write(data);
         std::cout << "Done. Trying to Read Written Data" << std::endl;
-        auto result = clientnode.read(*test);
+        auto result = clientnode.read(test);
         std::cout << "Done. Result: ";
         std::cout << reinterpret_cast<char *>(result) << ", and now reading from cache"<<std::endl;
-        auto result1 = clientnode.read(*test);
+        auto result1 = clientnode.read(test);
         std::cout << "Done. Result: "<< reinterpret_cast<char *>(result1) << ", and now changing to 1337"<<std::endl;
-        auto newint = uint64_t(1337);
-        auto newdata = defs::Data{sizeof(uint64_t), newint, *test};
+        auto newint = reinterpret_cast<char *>(1337);
+        auto newdata = defs::Data{sizeof(uint64_t), newint, test};
         clientnode.write(newdata);
-        auto result2 = clientnode.read(*test);
+        auto result2 = clientnode.read(test);
         std::cout << "Done. Result: "<< result2 << std::endl;
         std::cout << "Now the first connection is closed. new connection. "<< std::endl;
         std::cout << "Trying to read with the new connection "<< std::endl;
-        auto result3 = clientnode.read(*test);
+        auto result3 = clientnode.read(test);
         std::cout << "Done. Result: "<< result3 << ", now we free the memory"<< std::endl;
-        clientnode.Free(*test);
+        clientnode.Free(test);
         std::cout << "Done freeing. " << std::endl;
     }
     int serverStatus = 1;

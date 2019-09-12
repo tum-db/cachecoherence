@@ -13,10 +13,10 @@ namespace defs {
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    constexpr size_t MAX_BLOCK_SIZE = 1024;//512 + 256 +128 +16; // 912, bigger generates error
+    constexpr size_t MAX_BLOCK_SIZE = 512 + 256 +128; // 912, bigger generates error
     const uint16_t locknode = 2000;
 
-    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024*1024 *1024; //1024*100
+    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024; //1024*100
 
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
 
@@ -48,14 +48,14 @@ namespace defs {
 
     struct __attribute__ ((packed)) GlobalAddress {
         size_t size;
-        void *ptr;
+        char *ptr;
         uint16_t id;
         bool isFile;
 
         SendGlobalAddr sendable(uint16_t srcID) {
             SendGlobalAddr sga{};
             sga.size = size;
-            sga.ptr = reinterpret_cast<uint64_t >(ptr);
+            sga.ptr = reinterpret_cast<uintptr_t >(ptr);
             sga.id = id;
             sga.srcID = srcID;
             sga.isFile = isFile;
@@ -66,14 +66,14 @@ namespace defs {
 
         GlobalAddress(size_t s, void *p, uint16_t i, bool iF) {
             size = s;
-            ptr = p;
+            ptr = static_cast<char *>(p);
             id = i;
             isFile = iF;
         };
 
         explicit GlobalAddress(SendGlobalAddr sga) {
             size = sga.size;
-            ptr = reinterpret_cast<void *>(sga.ptr);
+            ptr = reinterpret_cast<char *>(sga.ptr);
             id = sga.id;
             isFile = sga.isFile;
         };
@@ -90,7 +90,7 @@ namespace defs {
 
     struct __attribute__ ((packed)) SendingData {
         size_t size;
-        uint64_t data;
+        char * data;
         SendGlobalAddr sga;
 
     };
@@ -98,7 +98,7 @@ namespace defs {
 
     struct __attribute__ ((packed)) Data {
         size_t size;
-        uint64_t data;
+        char * data;
         GlobalAddress ga;
 
         SendingData sendable(uint16_t id) {
@@ -111,7 +111,7 @@ namespace defs {
 
         Data() = default;
 
-        Data(size_t s, uint64_t d, GlobalAddress g) {
+        Data(size_t s, char *d, GlobalAddress g) {
             size = s;
             data = d;
             ga = g;
@@ -125,12 +125,23 @@ namespace defs {
     };
 
     struct SaveData {
-        uint64_t data;
+
+
         CACHE_DIRECTORY_STATE iscached;
         uint16_t ownerNode;
         std::vector<uint16_t> sharerNodes;
 
         SaveData (const SaveData &) = default;
+
+        SaveData() {
+            sharerNodes.resize(64);
+        }
+
+        SaveData(CACHE_DIRECTORY_STATE state, uint16_t i, std::vector<uint16_t> vector) {
+            iscached = state;
+            ownerNode = i;
+            sharerNodes = vector;
+        }
     };
 
 
@@ -156,6 +167,7 @@ namespace defs {
     };
 
     struct __attribute__ ((packed)) ReadFileData {
+        bool simplerequest;
         SendGlobalAddr sga;
         size_t offset;
         size_t size;

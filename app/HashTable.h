@@ -46,9 +46,9 @@ private:
         Elem *e;
         std::vector<Elem *> store;
         Node *node;
-        uintptr_t value;
+        char * value;
 
-        Iter(Elem *el, std::vector<Elem *> &s, Node *n, uint64_t v) {
+        Iter(Elem *el, std::vector<Elem *> &s, Node *n, char * v) {
             e = el;
             store =s;
             node = n;
@@ -141,7 +141,7 @@ public:
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         auto storevalue = new V(value);
-        auto castdata = reinterpret_cast<uintptr_t >(storevalue);
+        auto castdata = reinterpret_cast<char *>(storevalue);
         auto data = defs::Data(size, castdata, gadd);
         node->write(data);
     }
@@ -223,7 +223,7 @@ public:
         auto gadd = node->Malloc(sizeof(V), node->getID());
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
-        uint64_t value = node->read(gadd);
+        char * value = node->read(gadd);
         auto result = reinterpret_cast<V *>(value);
         return *result;
 

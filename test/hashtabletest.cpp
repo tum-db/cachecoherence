@@ -56,7 +56,7 @@ int main(int, const char **args) {
         std::cout << "size should be 3: " << h.size() << std::endl;
         std::cout << "bool should be 1: " << h[30] << std::endl;
         for(auto &v: h){
-            std::cout << "value: " << v << std::endl;
+            std::cout << "value: " << *v << std::endl;
         }
 
 

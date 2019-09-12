@@ -21,7 +21,6 @@ TEST(BufferManagerTest, FixSingle) {
         auto page = buffer_manager.fix_page(1, true);
         ASSERT_TRUE(page.get_data());
 
-        std::cout << "test, expected values & size: " << *expected_values.data() << ", "<< expected_values.size() << std::endl;
         buffer_manager.insert_data(page, expected_values.data(), defs::MAX_BLOCK_SIZE);
         //  std::memcpy(page.get_data(), expected_values.data(), defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);

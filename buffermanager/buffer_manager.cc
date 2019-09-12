@@ -271,7 +271,7 @@ namespace moderndbs {
                     std::forward_as_tuple(segment_id),
                     std::forward_as_tuple(
                             defs::GlobalAddress(0,
-                                                reinterpret_cast<void *>(const_cast<char *>(filename->c_str())),
+                                                const_cast<char *>(filename->c_str()),
                                                 node->getID(), true))).first->second;
         }
         {

@@ -49,16 +49,16 @@ private:
 
     void handleInvalidation(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void handleReset(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleReset(rdma::CompletionQueuePair &cq, Connection &c);
 
     void handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
 
-    void sendLock(Lock lock, defs::IMMDATA immData, Connection &c, bool *result);
+    bool sendLock(Lock lock, defs::IMMDATA immData, Connection &c);
 
 
     defs::GlobalAddress performWrite(defs::Data data, uint16_t srcID);
 
-    defs::SaveData *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
+    char *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
     void prepareForInvalidate(rdma::CompletionQueuePair &cq, Connection &c);
 
@@ -88,10 +88,9 @@ public:
 
     void closeClientSocket(Connection &c);
 
-    void sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c, void *buffer);
+    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
 
-    void sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c,
-                  defs::SendGlobalAddr *buffer);
+    defs::SendGlobalAddr sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
     bool setLock(uint64_t lockId, LOCK_STATES state);
 
@@ -109,7 +108,7 @@ public:
 
     char *FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
 
-    uint64_t read(defs::GlobalAddress gaddr);
+    char * read(defs::GlobalAddress gaddr);
 
     bool isLocal(defs::GlobalAddress gaddr);
 

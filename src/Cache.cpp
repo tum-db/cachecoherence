@@ -13,11 +13,15 @@ Cache::Cache() : maxsize(), availablesize(), items(), state() {
     state = defs::CACHE_DIRECTORY_STATE::UNSHARED;
 }
 
-void Cache::addCacheItem(defs::GlobalAddress gaddr, CacheItem cacheItem) {
+void Cache::addCacheItem(defs::GlobalAddress gaddr, char * data) {
     if (gaddr.size <= maxsize) {
         if (availablesize >= gaddr.size) {
-            items.insert(std::pair<uint64_t, CacheItem>(
-                    GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable(0)), cacheItem));
+            auto& ci = items.emplace(
+                    std::piecewise_construct,
+                    std::forward_as_tuple(GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable(0))),
+                    std::forward_as_tuple(gaddr, data, std::chrono::system_clock::now(), std::chrono::system_clock::now())
+            ).first->second;
+            memcpy( ci.data, data, gaddr.size);
             availablesize = availablesize - gaddr.size;
         } else {
             while (availablesize < gaddr.size) {
@@ -49,20 +53,25 @@ void Cache::removeOldestItem() {
 }
 
 CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
-    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0)));
+    auto h = GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0));
+    auto cacheItem = items.find(h);
     if (cacheItem != items.end()) {
         cacheItem->second.lastused = std::chrono::system_clock::now();
+        items[h] = cacheItem->second;
         return &cacheItem->second;
     } else {
         return nullptr;
     }
 }
 
-void Cache::alterCacheItem(CacheItem ci, defs::GlobalAddress ga) {
-    auto cacheItem = items.find(GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0)));
+void Cache::alterCacheItem(char * data, defs::GlobalAddress ga) {
+    auto h = GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0));
+    auto cacheItem = items.find(h);
     if (cacheItem != items.end()) {
-        cacheItem->second = ci;
+        memcpy(cacheItem->second.data, data, ga.size);
+        cacheItem->second.lastused = std::chrono::system_clock::now();
+        items[h] = cacheItem->second;
     } else {
-        addCacheItem(ga, ci);
+        addCacheItem(ga, data);
     }
 }
