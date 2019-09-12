@@ -124,7 +124,6 @@ size_t MaFile::read_size() {
     if (::fstat(fd, &file_stat) < 0) {
         moderndbs::throw_errno();
     }
-    std::cout << "read size: " << file_stat.st_size << std::endl;
     return file_stat.st_size;
 }
 

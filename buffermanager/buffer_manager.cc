@@ -8,6 +8,7 @@
 #include <tuple>
 #include <utility>
 #include <iostream>
+#include <malloc.h>
 
 
 /*
@@ -94,7 +95,7 @@ namespace moderndbs {
 
 
     BufferManager::BufferManager(size_t page_size, size_t page_count, Node *n,
-                                 HashTable<BufferFrame::SaveBufferFrame> pages)
+                                 HashTable<BufferFrame> pages)
             : page_size(page_size), page_count(page_count),
               loaded_pages{std::make_unique<char[]>(page_count * page_size)}, pages(pages) {
         node = n;
@@ -103,11 +104,10 @@ namespace moderndbs {
 
     BufferManager::~BufferManager() {
         std::unique_lock latch{directory_latch};
-        BufferFrame* bf;
         for (auto entry : pages) {
-            bf = new BufferFrame(*entry);
-            std::cout <<"destructor - page_id: " << bf->page_id << std::endl;
-            write_out_page(*bf, latch);
+            auto bf = *entry;
+            std::cout <<"destructor - page_id: " << bf.page_id << std::endl;
+            write_out_page(bf, latch);
 
         }
 
@@ -119,7 +119,7 @@ namespace moderndbs {
         while (true) {
             if (pages.get(page_id).has_value() == 1) {
                 // Page is already loaded.
-                auto page = BufferFrame(&pages[page_id]);
+                auto page = pages[page_id];
                 ++page.num_users;
                 if (page.state == BufferFrame::EVICTING) {
                     // Page is being evicted but we want to use it, so "revive" it
@@ -169,8 +169,8 @@ namespace moderndbs {
         assert(pages.get(page_id).has_value() == 0);
         auto newpage = BufferFrame(page_id, nullptr, fifo.end(), lru.end());
 
-        pages.insert(page_id, newpage.sendable(), sizeof(BufferFrame::SaveBufferFrame)+page_size);
-        auto page = BufferFrame(&pages[page_id]);
+        pages.insert(page_id, newpage, sizeof(BufferFrame)+page_size);
+        auto page = pages[page_id];
         ++page.num_users;
 
         //  page.lock(true);
@@ -206,9 +206,7 @@ namespace moderndbs {
 
         //   page.lock(exclusive);
 
-        pages.erase(page_id);
-        std::cout << "pagedata: " << page.data << std::endl;
-        pages.insert(page_id, page.sendable());
+        pages.update(page_id, page);
 
         return page;
     }
@@ -226,10 +224,9 @@ namespace moderndbs {
         }
         --page.num_users;
 
-        pages.erase(page.page_id);
-        std::cout << "pagedata: " << page.data << std::endl;
+     //   std::cout << "pagedata: " << page.data << std::endl;
 
-        pages.insert(page.page_id, page.sendable());
+        pages.update(page.page_id, page);
     }
 
 
@@ -266,11 +263,13 @@ namespace moderndbs {
             auto filename = new std::string(std::to_string(segment_id));
             // Open file in WRITE mode because we may have to write dirty pages to
             // it.
+            auto f = MaFile::open_file(filename->c_str(),MaFile::Mode::WRITE);
+            auto file_size = f->size();
             segment_file = segment_files.emplace(
                     std::piecewise_construct,
                     std::forward_as_tuple(segment_id),
                     std::forward_as_tuple(
-                            defs::GlobalAddress(0,
+                            defs::GlobalAddress(file_size,
                                                 const_cast<char *>(filename->c_str()),
                                                 node->getID(), true))).first->second;
         }
@@ -281,7 +280,8 @@ namespace moderndbs {
                 // As the bytes in the file are zeroed anyway, we don't have to read
                 // the zeroes from disk.
                 segment_file.resize((segment_page_id + 1) * page_size);
-                //      std::memset(page.data, 0, page_size);
+                segment_files[segment_id] = segment_file;
+
             } else {
                 node->setLock(generateLockId(segment_file.sendable(0)),
                               LOCK_STATES::UNLOCKED);
@@ -313,14 +313,14 @@ namespace moderndbs {
     BufferFrame BufferManager::find_page_to_evict() {
         // Try FIFO list first
         for (auto page_id : fifo) {
-            auto page = BufferFrame(&pages[page_id]);
+            auto page = pages[page_id];
             if (page.num_users == 0 && page.state == BufferFrame::LOADED) {
                 return page;
             }
         }
         // If FIFO list is empty or all pages in it are in use, try LRU
         for (auto page_id : lru) {
-            auto page = BufferFrame(&pages[page_id]);
+            auto page = pages[page_id];
 
             if (page.num_users == 0 && page.state == BufferFrame::LOADED) {
                 return page;
@@ -375,12 +375,11 @@ namespace moderndbs {
         return data;
     }
 
-    void BufferManager::insert_data(BufferFrame &page, void *newdata, size_t size) {
-        std::memcpy(page.data, newdata, size);
-        pages.erase(page.page_id);
-        std::cout << "pagedata: " << page.data << ", newdata: " << reinterpret_cast<char *>(newdata) << std::endl;
+    void BufferManager::insert_data(BufferFrame &page, char *newdata, size_t size) {
+      //  std::cout << "pagedata: " << page.data << ", newdata: " << newdata << std::endl;
+        page.data = newdata;
 
-        pages.insert(page.page_id, page.sendable());
+        pages.update(page.page_id, page);
 
     }
 
