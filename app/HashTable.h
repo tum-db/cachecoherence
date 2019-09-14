@@ -77,7 +77,7 @@ private:
                 Elem *tmp = new Elem{};
                 for (auto &b: store) {
                     if (b != nullptr) {
-                     //   std::cout << "key of next value: " << b->key << std::endl;
+                        //   std::cout << "key of next value: " << b->key << std::endl;
                         if (e == tmp) {
                             e = b;
                             break;
@@ -87,7 +87,7 @@ private:
                 }
             }
             value = node->read(e->gaddr);
-            if(*this == current){
+            if (*this == current) {
                 e = new Elem{};
                 value = "\0";
             }
@@ -239,42 +239,12 @@ public:
         }
     }
 
-    Iter end() {
-        return Iter{new Elem{}, storage, node, "\0"};
-        Elem *value = nullptr;
-        for (auto &b: storage) {
-            if (b != nullptr) {
+    Iter end() { return Iter{new Elem{}, storage, node, "\0"}; }
 
-                while (b->next != nullptr) {
-                    b = b->next;
-                }
-                value = b;
-            }
-        }
-        if (value != nullptr) {
-            return Iter(value, storage, node, node->read(value->gaddr));
-        }
-
-    }
-
-    Iter end() const {
-        return Iter{new Elem{}, storage, node, "\0"};
-        Elem *value = nullptr;
-        for (auto &b: storage) {
-            if (b != nullptr) {
-                while (b->next != nullptr) {
-                    b = b->next;
-                }
-                value = b;
-            }
-        }
-        if (value != nullptr) {
-            return Iter(value, storage, node, node->read(value->gaddr));
-        }
-    }
+    Iter end() const { return Iter{new Elem{}, storage, node, "\0"}; }
 
 
-    void update(uint64_t key, V value){
+    void update(uint64_t key, V value) {
         uint64_t b = hashBucket(key);
         Elem *bucket = storage[b];
         while (bucket != nullptr) {

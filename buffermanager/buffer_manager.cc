@@ -333,7 +333,7 @@ namespace moderndbs {
             // Need to evict another page. If no page can be evicted,
             // find_page_to_evict() returns nullptr.
             page_to_evict = find_page_to_evict();
-            if (page_to_evict.get_data() == nullptr) {
+            if (std::strcmp(page_to_evict.get_data(),"\0") == 0) {
                 return nullptr;
             }
             assert(page_to_evict.state == BufferFrame::LOADED);
