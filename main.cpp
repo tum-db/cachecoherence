@@ -218,8 +218,15 @@ int main() {
         block.resize(900);
         char *readed = &block[0];
         f.read_block(0, 900, readed);
+        std::cout << readed << std::endl;
         node.FprintF(readed, fileaddress, 900, 0);
 
+        std::vector<char> bl;
+        bl.resize(900);
+
+        char *file_read = &bl[0];
+        node.FreadF(fileaddress, 900, 0, file_read);
+        std::cout << "read file, data: "<< file_read  << std::endl;
 
         std::cout << "done, going to save a struct: " << std::endl;
         auto test3 = node.Malloc(sizeof(Test), node.getID());

@@ -135,6 +135,8 @@ namespace defs {
 
         SaveData() {
             sharerNodes.resize(64);
+            iscached = CACHE_DIRECTORY_STATE::UNSHARED;
+            ownerNode = 0;
         }
 
         SaveData(CACHE_DIRECTORY_STATE state, uint16_t i, std::vector<uint16_t> vector) {

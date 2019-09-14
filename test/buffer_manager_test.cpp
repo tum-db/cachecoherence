@@ -52,7 +52,7 @@ TEST(BufferManagerTest, PersistentRestart) {
             auto page = buffer_manager->fix_page(page_id, true);
             ASSERT_TRUE(page.get_data());
             auto value = const_cast<char *>(std::to_string(segment * 10 + segment_page).c_str());
-            buffer_manager->insert_data(page, value, defs::MAX_BLOCK_SIZE);
+            buffer_manager->insert_data(page, value, sizeof(char)*strlen(value));
             buffer_manager->unfix_page(page, true);
         }
     }
@@ -65,7 +65,7 @@ TEST(BufferManagerTest, PersistentRestart) {
             uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
             auto page = buffer_manager->fix_page(page_id, false);
             ASSERT_TRUE(page.get_data());
-            uint64_t value = *reinterpret_cast<uint64_t *>(page.get_data());
+            uint64_t value = atoi(page.get_data());
             buffer_manager->unfix_page(page, false);
             EXPECT_EQ(segment * 10 + segment_page, value);
         }

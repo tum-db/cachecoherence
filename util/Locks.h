@@ -17,6 +17,7 @@ enum LOCK_STATES {
 struct __attribute__ ((packed)) Lock {
     uint64_t id;
     LOCK_STATES state;
+    uint16_t nodeId;
 };
 
 

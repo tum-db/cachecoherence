@@ -24,7 +24,7 @@ private:
     size_t allocated = 0;
     rdma::Network network;
     uint16_t id;
-    std::unordered_map<uint64_t, LOCK_STATES> locks;
+    std::unordered_map<uint64_t, Lock> locks;
     Cache cache;
 
 
@@ -92,7 +92,7 @@ public:
 
     defs::SendGlobalAddr sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
-    bool setLock(uint64_t lockId, LOCK_STATES state);
+    bool setLock(uint64_t lockId, LOCK_STATES state, uint16_t nodeId);
 
     void connectAndReceive(uint16_t port);
 
@@ -106,7 +106,7 @@ public:
 
     defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset);
 
-    char *FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset);
+    void FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset, char* res);
 
     char * read(defs::GlobalAddress gaddr);
 

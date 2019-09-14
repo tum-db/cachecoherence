@@ -70,6 +70,7 @@ private:
         }
 
         Iter &operator++() {
+            Iter current = *this;
             if (e->next != nullptr) {
                 e = e->next;
             } else {
@@ -86,7 +87,10 @@ private:
                 }
             }
             value = node->read(e->gaddr);
-
+            if(*this == current){
+                e = new Elem{};
+                value = "\0";
+            }
             return *this;
         }
 
@@ -137,7 +141,6 @@ public:
     void insert(uint64_t key, V value, size_t size = sizeof(V)) {
         uint64_t b = hashBucket(key);
         auto gadd = node->Malloc(size, node->getID());
-      //  std::cout << "size and pointer of insert: " << gadd.size << ", " << reinterpret_cast<void *>(gadd.ptr) << std::endl;
         storage[b] = new Elem({key, gadd, storage[b]});
         ++amountElements;
         auto castdata = reinterpret_cast<char *>(&value);
@@ -237,6 +240,7 @@ public:
     }
 
     Iter end() {
+        return Iter{new Elem{}, storage, node, "\0"};
         Elem *value = nullptr;
         for (auto &b: storage) {
             if (b != nullptr) {
@@ -254,6 +258,7 @@ public:
     }
 
     Iter end() const {
+        return Iter{new Elem{}, storage, node, "\0"};
         Elem *value = nullptr;
         for (auto &b: storage) {
             if (b != nullptr) {
@@ -277,6 +282,9 @@ public:
                 auto castdata = reinterpret_cast<char *>(&value);
                 auto data = defs::Data(bucket->gaddr.size, castdata, bucket->gaddr);
                 node->write(data);
+                auto test = reinterpret_cast<V *>(node->read(bucket->gaddr));
+
+                return;
             }
             bucket = bucket->next;
         }

@@ -18,7 +18,7 @@
 namespace moderndbs {
 
 
-    class BufferFrame {
+    class __attribute__ ((packed)) BufferFrame {
     private:
         friend class BufferManager;
 
@@ -29,7 +29,7 @@ namespace moderndbs {
         };
 
         uint64_t page_id;
-        char *data;
+        std::array<char,defs::MAX_BLOCK_SIZE > data;
         State state = NEW;
 
 
@@ -51,17 +51,11 @@ namespace moderndbs {
 
     public:
         BufferFrame(
-                uint64_t page_id, char *d, list_position fifo_position,
+                uint64_t page_id, char *d, size_t datasize, list_position fifo_position,
                 list_position lru_position
-        ) : page_id(page_id), fifo_position(fifo_position), lru_position(lru_position) {
-            std::vector<char> better_data;
-            better_data.resize(defs::MAX_BLOCK_SIZE);
-            for(size_t i = 0; i < defs::MAX_BLOCK_SIZE; i++){
-                better_data[i] = 0;
-            }
-            data = &better_data[0];
+        ) : page_id(page_id),data(), fifo_position(fifo_position), lru_position(lru_position) {
             if (d != nullptr) {
-                memcpy(data, d, defs::MAX_BLOCK_SIZE);
+                memcpy(&data[0], d, datasize);
             }
         }
 
@@ -138,7 +132,7 @@ namespace moderndbs {
         /// @param[in] page_count Maximum number of pages that should reside in
         //                        memory at the same time.
         BufferManager(size_t page_size, size_t page_count, Node *n,
-                      HashTable<BufferFrame> pages);
+                      const HashTable<BufferFrame>& pages);
 
         /// Destructor. Writes all dirty pages to disk.
         ~BufferManager();

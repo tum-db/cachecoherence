@@ -90,12 +90,12 @@ be found.
 namespace moderndbs {
 
     char *BufferFrame::get_data() {
-        return data;
+        return &data[0];
     }
 
 
     BufferManager::BufferManager(size_t page_size, size_t page_count, Node *n,
-                                 HashTable<BufferFrame> pages)
+                                 const HashTable<BufferFrame>& pages)
             : page_size(page_size), page_count(page_count),
               loaded_pages{std::make_unique<char[]>(page_count * page_size)}, pages(pages) {
         node = n;
@@ -105,10 +105,7 @@ namespace moderndbs {
     BufferManager::~BufferManager() {
         std::unique_lock latch{directory_latch};
         for (auto entry : pages) {
-            auto bf = *entry;
-            std::cout <<"destructor - page_id: " << bf.page_id << std::endl;
-            write_out_page(bf, latch);
-
+            write_out_page(*entry, latch);
         }
 
     }
@@ -167,9 +164,9 @@ namespace moderndbs {
         }
         // Create a new page and don't insert it in the queues, yet.
         assert(pages.get(page_id).has_value() == 0);
-        auto newpage = BufferFrame(page_id, nullptr, fifo.end(), lru.end());
+        auto newpage = BufferFrame(page_id, nullptr, 0, fifo.end(), lru.end());
 
-        pages.insert(page_id, newpage, sizeof(BufferFrame)+page_size);
+        pages.insert(page_id, newpage, sizeof(BufferFrame) + page_size);
         auto page = pages[page_id];
         ++page.num_users;
 
@@ -193,8 +190,7 @@ namespace moderndbs {
             }
         }
         page.state = BufferFrame::LOADING;
-        page.data = data;
-
+        memcpy(page.get_data(), data, defs::MAX_BLOCK_SIZE);
         page.fifo_position = fifo.insert(fifo.end(), page_id);
 
         load_page(page, latch);
@@ -207,7 +203,6 @@ namespace moderndbs {
         //   page.lock(exclusive);
 
         pages.update(page_id, page);
-
         return page;
     }
 
@@ -224,9 +219,10 @@ namespace moderndbs {
         }
         --page.num_users;
 
-     //   std::cout << "pagedata: " << page.data << std::endl;
+        //   std::cout << "pagedata: " << page.data << std::endl;
 
         pages.update(page.page_id, page);
+
     }
 
 
@@ -253,41 +249,41 @@ namespace moderndbs {
     void BufferManager::load_page(BufferFrame &page, std::unique_lock<std::mutex> &latch) {
         assert(page.state == BufferFrame::LOADING);
         auto segment_id = get_segment_id(page.page_id);
+
         auto segment_page_id = get_segment_page_id(page.page_id);
         //  std::cout << "segmentid: "<< segment_page_id << std::endl;
-        defs::GlobalAddress segment_file;
+        defs::GlobalAddress segment_file{};
+
         if (auto it = segment_files.find(segment_id); it != segment_files.end()) {
             // File was opened already.
             segment_file = it->second;
         } else {
-            auto filename = new std::string(std::to_string(segment_id));
+            // new to avoid segfault
+            auto getfilename = new std::string(std::to_string(segment_id));
             // Open file in WRITE mode because we may have to write dirty pages to
             // it.
-            auto f = MaFile::open_file(filename->c_str(),MaFile::Mode::WRITE);
+            auto filename = const_cast<char *>(getfilename->c_str());
+            auto f = MaFile::open_file(filename, MaFile::Mode::WRITE);
             auto file_size = f->size();
             segment_file = segment_files.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(segment_id),
-                    std::forward_as_tuple(
-                            defs::GlobalAddress(file_size,
-                                                const_cast<char *>(filename->c_str()),
-                                                node->getID(), true))).first->second;
+                    std::piecewise_construct, std::forward_as_tuple(segment_id),
+                    std::forward_as_tuple(file_size, filename, node->getID(), true)).first->second;
         }
         {
-            node->setLock(generateLockId(segment_file.sendable(0)), LOCK_STATES::EXCLUSIVE);
+            node->setLock(generateLockId(segment_file.sendable(0)), LOCK_STATES::EXCLUSIVE,
+                          node->getID());
             if (segment_file.size < (segment_page_id + 1) * page_size) {
                 // When the file is too small, resize it and zero out the data for it.
                 // As the bytes in the file are zeroed anyway, we don't have to read
                 // the zeroes from disk.
-                segment_file.resize((segment_page_id + 1) * page_size);
-                segment_files[segment_id] = segment_file;
+                segment_files[segment_id].size = (segment_page_id + 1) * page_size;
 
             } else {
                 node->setLock(generateLockId(segment_file.sendable(0)),
-                              LOCK_STATES::UNLOCKED);
+                              LOCK_STATES::UNLOCKED, node->getID());
                 latch.unlock();
-                page.data = node->FreadF(segment_file, page_size,
-                                         segment_page_id * page_size);
+                node->FreadF(segment_file, page_size,
+                             segment_page_id * page_size, page.get_data());
                 //  file.read_block(segment_page_id * page_size, page_size, page.data);
                 latch.lock();
             }
@@ -295,15 +291,16 @@ namespace moderndbs {
 
         page.state = BufferFrame::LOADED;
         page.is_dirty = false;
+
     }
 
 
     void BufferManager::write_out_page(BufferFrame &page, std::unique_lock<std::mutex> &latch) {
         auto segment_id = get_segment_id(page.page_id);
         auto segment_page_id = get_segment_page_id(page.page_id);
-        auto gaddr = segment_files.find(segment_id)->second;
+        auto gaddr =segment_files[segment_id];
         latch.unlock();
-        node->FprintF(page.data, gaddr, page_size, segment_page_id * page_size);
+        node->FprintF(page.get_data(), gaddr, page_size, segment_page_id * page_size);
         //  file.write_block(page.data, segment_page_id * page_size, page_size);
         latch.lock();
         page.is_dirty = false;
@@ -326,7 +323,7 @@ namespace moderndbs {
                 return page;
             }
         }
-        return BufferFrame(0, nullptr, fifo.end(), lru.end());
+        return BufferFrame(0, nullptr, 0, fifo.end(), lru.end());
     }
 
 
@@ -336,7 +333,7 @@ namespace moderndbs {
             // Need to evict another page. If no page can be evicted,
             // find_page_to_evict() returns nullptr.
             page_to_evict = find_page_to_evict();
-            if (page_to_evict.data == nullptr) {
+            if (page_to_evict.get_data() == nullptr) {
                 return nullptr;
             }
             assert(page_to_evict.state == BufferFrame::LOADED);
@@ -348,8 +345,8 @@ namespace moderndbs {
             // other threads can continue using it while it is being written.
             {
                 auto page_data = std::make_unique<char[]>(page_size);
-                std::memcpy(page_data.get(), page_to_evict.data, page_size);
-                BufferFrame page_copy{page_to_evict.page_id, page_data.get(), fifo.end(),
+                std::memcpy(page_data.get(), page_to_evict.get_data(), page_size);
+                BufferFrame page_copy{page_to_evict.page_id, page_data.get(), page_size, fifo.end(),
                                       lru.end()};
                 write_out_page(page_copy, latch);
             }
@@ -370,17 +367,15 @@ namespace moderndbs {
             assert(page_to_evict.fifo_position != fifo.end());
             fifo.erase(page_to_evict.fifo_position);
         }
-        char *data = page_to_evict.data;
+        char *data = page_to_evict.get_data();
         pages.erase(page_to_evict.page_id);
         return data;
     }
 
     void BufferManager::insert_data(BufferFrame &page, char *newdata, size_t size) {
-      //  std::cout << "pagedata: " << page.data << ", newdata: " << newdata << std::endl;
-        page.data = newdata;
-
+        memcpy(&page.data[0], newdata, size);
+    //    std::cout << "pagedata: " << page.get_data() << ", newdata: " << newdata  << std::endl;
         pages.update(page.page_id, page);
-
     }
 
 }  // namespace moderndbs

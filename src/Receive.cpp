@@ -172,7 +172,7 @@ void Node::handleFree(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFi
 
 void Node::handleLocks(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
     auto l = reinterpret_cast<Lock *>(c.recvreg);
-    auto lock = setLock(l->id, l->state);
+    auto lock = setLock(l->id, l->state, l->nodeId);
     std::memcpy(c.sendreg, &lock, sizeof(Lock));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
@@ -315,12 +315,11 @@ void Node::handleMallocFile(rdma::CompletionQueuePair &cq, Connection &c, defs::
     defs::SendGlobalAddr newgaddr{};
     std::cout << "mallocfile" << std::endl;
 
-    auto sga = reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg);
     auto filename = getNextFileName();
     auto nf = MaFile(filename, MaFile::Mode::WRITE);
 
-    if (nf.enough_space(0, sga->size)) {
-        newgaddr = defs::GlobalAddress(sga->size, filename, id, true).sendable(sga->srcID);
+    if (nf.enough_space(0, rfd.sga.size)) {
+        newgaddr = defs::GlobalAddress(rfd.sga.size, filename, id, true).sendable(rfd.sga.srcID);
     } else {
         newgaddr = defs::GlobalAddress(0, filename, 0, true).sendable(0);
 
@@ -339,7 +338,7 @@ void Node::handleReadFile(rdma::CompletionQueuePair &cq, Connection &c, defs::Re
 
         char *result = &block[0];
         if (isLocal(gaddr)) {
-            auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::READ);
+            auto f = MaFile(gaddr.ptr, MaFile::Mode::READ);
             f.read_block(rfd.offset, rfd.size, result);
 
 //    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
@@ -362,7 +361,7 @@ void Node::handleWriteFile(rdma::CompletionQueuePair &cq, Connection &c, defs::R
         std::cout << castdata << std::endl;
         auto data = reinterpret_cast<char *>(castdata);
 
-        auto f = MaFile(reinterpret_cast<char *>(gaddr.ptr), MaFile::Mode::WRITE);
+        auto f = MaFile(gaddr.ptr, MaFile::Mode::WRITE);
         f.resize(gaddr.size + rfd.size);
         std::cout << data << std::endl;
         std::cout << "local, size: " << rfd.size << ", gaddr-size: " << gaddr.size
