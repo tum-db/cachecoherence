@@ -21,7 +21,8 @@ TEST(BufferManagerTest, FixSingle) {
         auto page = buffer_manager.fix_page(1, true);
         ASSERT_TRUE(page.get_data());
 
-        buffer_manager.insert_data(page, reinterpret_cast<char *>(expected_values.data()), defs::MAX_BLOCK_SIZE);
+        buffer_manager.insert_data(page, reinterpret_cast<char *>(expected_values.data()),
+                                   defs::MAX_BLOCK_SIZE);
         //  std::memcpy(page.get_data(), expected_values.data(), defs::MAX_BLOCK_SIZE);
         buffer_manager.unfix_page(page, true);
         EXPECT_EQ(std::vector<uint64_t>{1}, buffer_manager.get_fifo_list());
@@ -52,7 +53,7 @@ TEST(BufferManagerTest, PersistentRestart) {
             auto page = buffer_manager->fix_page(page_id, true);
             ASSERT_TRUE(page.get_data());
             auto value = const_cast<char *>(std::to_string(segment * 10 + segment_page).c_str());
-            buffer_manager->insert_data(page, value, sizeof(char)*strlen(value));
+            buffer_manager->insert_data(page, value, sizeof(char) * strlen(value));
             buffer_manager->unfix_page(page, true);
         }
     }
@@ -203,7 +204,9 @@ TEST(BufferManagerTest, MultithreadExclusiveAccess) {
     {
         auto page = buffer_manager.fix_page(0, true);
         ASSERT_TRUE(page.get_data());
-        buffer_manager.insert_data(page, 0, defs::MAX_BLOCK_SIZE);
+        auto value = const_cast<char *>(std::to_string(0).c_str());
+
+        buffer_manager.insert_data(page, value, sizeof(uint64_t));
         buffer_manager.unfix_page(page, true);
     }
     std::vector<std::thread> threads;
@@ -212,8 +215,12 @@ TEST(BufferManagerTest, MultithreadExclusiveAccess) {
             for (size_t j = 0; j < 1000; ++j) {
                 auto page = buffer_manager.fix_page(0, true);
                 ASSERT_TRUE(page.get_data());
-                uint64_t &value = *reinterpret_cast<uint64_t *>(page.get_data());
-                ++value;
+
+                uint64_t value = atoi(page.get_data());
+                value++;
+                buffer_manager.insert_data(page, const_cast<char *>(std::to_string(value).c_str()),
+                                           sizeof(uint64_t));
+
                 buffer_manager.unfix_page(page, true);
             }
         });

@@ -7,29 +7,33 @@
 #include <iostream>
 
 
-Cache::Cache() : maxsize(), availablesize(), items(), state() {
-    maxsize = 512;
+Cache::Cache() : availablesize(), items(), state() {
     availablesize = 512;
     state = defs::CACHE_DIRECTORY_STATE::UNSHARED;
 }
 
-void Cache::addCacheItem(defs::GlobalAddress gaddr, char * data) {
-    if (gaddr.size <= maxsize) {
-        if (availablesize >= gaddr.size) {
-            auto& ci = items.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable(0))),
-                    std::forward_as_tuple(gaddr, data, std::chrono::system_clock::now(), std::chrono::system_clock::now())
-            ).first->second;
-            memcpy( ci.data, data, gaddr.size);
-            availablesize = availablesize - gaddr.size;
+void Cache::addCacheItem(defs::GlobalAddress gaddr, char *data, size_t size) {
+    if (size <= defs::MAX_CACHE_SIZE) {
+        if (availablesize >= size) {
+            std::vector<char> itemdata;
+            itemdata.resize(size);
+            memcpy(&itemdata[0], data, size);
+            auto hash = GlobalAddressHash<defs::SendGlobalAddr>()(gaddr.sendable(0));
+            items.emplace(
+                    std::piecewise_construct, std::forward_as_tuple(hash),
+                    std::forward_as_tuple(gaddr, itemdata, std::chrono::system_clock::now(),
+                                          std::chrono::system_clock::now())
+            );
+            availablesize = availablesize - size;
+            auto test = items[hash];
+            return;
         } else {
-            while (availablesize < gaddr.size) {
+            while (availablesize < size) {
                 removeOldestItem();
             }
         }
     } else {
-        throw;
+        throw std::runtime_error("too large for cache");
     }
 }
 
@@ -64,14 +68,16 @@ CacheItem *Cache::getCacheItem(defs::GlobalAddress ga) {
     }
 }
 
-void Cache::alterCacheItem(char * data, defs::GlobalAddress ga) {
+void Cache::alterCacheItem(char *data, defs::GlobalAddress ga, size_t size) {
     auto h = GlobalAddressHash<defs::SendGlobalAddr>()(ga.sendable(0));
     auto cacheItem = items.find(h);
     if (cacheItem != items.end()) {
-        memcpy(cacheItem->second.data, data, ga.size);
-        cacheItem->second.lastused = std::chrono::system_clock::now();
-        items[h] = cacheItem->second;
+        auto item = cacheItem->second;
+        item.data.resize(size);
+        memcpy(&item.data[0], data, size);
+        item.lastused = std::chrono::system_clock::now();
+        items[h] = item;
     } else {
-        addCacheItem(ga, data);
+        addCacheItem(ga, data, size);
     }
 }

@@ -18,7 +18,7 @@
 namespace moderndbs {
 
 
-    class __attribute__ ((packed)) BufferFrame {
+    class BufferFrame {
     private:
         friend class BufferManager;
 
@@ -29,7 +29,7 @@ namespace moderndbs {
         };
 
         uint64_t page_id;
-        std::array<char,defs::MAX_BLOCK_SIZE > data;
+        std::array<char,defs::MAX_BLOCK_SIZE > data{};
         State state = NEW;
 
 
@@ -53,7 +53,7 @@ namespace moderndbs {
         BufferFrame(
                 uint64_t page_id, char *d, size_t datasize, list_position fifo_position,
                 list_position lru_position
-        ) : page_id(page_id),data(), fifo_position(fifo_position), lru_position(lru_position) {
+        ) : page_id(page_id), fifo_position(fifo_position), lru_position(lru_position) {
             if (d != nullptr) {
                 memcpy(&data[0], d, datasize);
             }

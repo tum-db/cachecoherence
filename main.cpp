@@ -105,7 +105,7 @@ struct __attribute__ ((packed)) Test {
 }*/
 
 int main() {
-    auto node = Node();
+    Node node;
 
     std::cout << "Server or Client? (0 = server, 1 = client): ";
     uint16_t servOcli; // 0 = server, 1 = client
@@ -152,7 +152,7 @@ int main() {
     */
 
         char *d = "Servus"; // need to cast data to uint64_t
-        size_t size = sizeof(d);
+        size_t size = strlen(d);
         auto firstgaddr = defs::GlobalAddress(size, nullptr, 0, 0);
 
         std::cout << "Trying to Malloc" << std::endl;
@@ -179,7 +179,7 @@ int main() {
         auto data = defs::Data(size, d, test);
 
         std::cout << "Trying to Write, data: " << d << std::endl;
-        node.write(data);
+        test = node.write(data);
 
         std::cout << "Done. Trying to Read Written Data" << std::endl;
         auto result = node.read(test);
@@ -188,14 +188,16 @@ int main() {
                   << std::endl;
 
         auto result1 = node.read(test);
-        std::cout << "Done. Result: " << reinterpret_cast<char *>(result1)
-                  << ", and now changing to 1337" << std::endl;
-        auto newval = uint64_t(1337);
-        node.write(defs::Data{sizeof(uint64_t), reinterpret_cast<char *>(&newval), test});
+        std::cout << "Done. Result: " << result1 << ", and now changing to 1337" << std::endl;
+        uint64_t newval = 1337;
+        test = node.write(defs::Data{sizeof(uint64_t), reinterpret_cast<char *>(&newval), test});
 
         std::cout << "Done. Trying to Read Written Data" << std::endl;
-        auto result2 = node.read(test);
-        std::cout << "Done. Result: " << result2 << ", now we free the memory" << std::endl;
+        char *result2 = node.read(test);
+
+
+        std::cout << "Done. Result: " << *reinterpret_cast<uint64_t *>(result2)<< ", now we free the memory"
+                  << std::endl;
 
         node.Free(test);
         std::cout << "freed one" << std::endl;
@@ -226,7 +228,7 @@ int main() {
 
         char *file_read = &bl[0];
         node.FreadF(fileaddress, 900, 0, file_read);
-        std::cout << "read file, data: "<< file_read  << std::endl;
+        std::cout << "read file, data: " << file_read << std::endl;
 
         std::cout << "done, going to save a struct: " << std::endl;
         auto test3 = node.Malloc(sizeof(Test), node.getID());

@@ -7,8 +7,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
-#include <iostream>
-#include <malloc.h>
+
 
 
 /*
@@ -95,7 +94,7 @@ namespace moderndbs {
 
 
     BufferManager::BufferManager(size_t page_size, size_t page_count, Node *n,
-                                 const HashTable<BufferFrame>& pages)
+                                 const HashTable<BufferFrame> &pages)
             : page_size(page_size), page_count(page_count),
               loaded_pages{std::make_unique<char[]>(page_count * page_size)}, pages(pages) {
         node = n;
@@ -270,7 +269,7 @@ namespace moderndbs {
                     std::forward_as_tuple(file_size, filename, node->getID(), true)).first->second;
         }
         {
-            node->setLock(generateLockId(segment_file.sendable(0)), LOCK_STATES::EXCLUSIVE,
+            node->setLock(GlobalAddressHash<defs::SendGlobalAddr>::generateLockId(segment_file.sendable(0)), LOCK_STATES::EXCLUSIVE,
                           node->getID());
             if (segment_file.size < (segment_page_id + 1) * page_size) {
                 // When the file is too small, resize it and zero out the data for it.
@@ -279,7 +278,7 @@ namespace moderndbs {
                 segment_files[segment_id].size = (segment_page_id + 1) * page_size;
 
             } else {
-                node->setLock(generateLockId(segment_file.sendable(0)),
+                node->setLock(GlobalAddressHash<defs::SendGlobalAddr>::generateLockId(segment_file.sendable(0)),
                               LOCK_STATES::UNLOCKED, node->getID());
                 latch.unlock();
                 node->FreadF(segment_file, page_size,

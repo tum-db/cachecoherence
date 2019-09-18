@@ -15,12 +15,12 @@
 
 
 struct CacheItem {
-    defs::GlobalAddress globalAddress;
-    char *data;
+    defs::GlobalAddress globalAddress{};
+    std::vector<char> data;
     std::chrono::time_point<std::chrono::system_clock> created;
     std::chrono::time_point<std::chrono::system_clock> lastused;
 
-    CacheItem(defs::GlobalAddress ga, char *d, std::chrono::time_point<std::chrono::system_clock> c,
+    CacheItem(defs::GlobalAddress ga, std::vector<char> d, std::chrono::time_point<std::chrono::system_clock> c,
     std::chrono::time_point<std::chrono::system_clock> l){
         globalAddress = ga;
         data = d;
@@ -32,7 +32,6 @@ struct CacheItem {
 
 class Cache {
 private:
-    size_t maxsize; //is set 512 in constructor
     size_t availablesize;
     std::map<uint64_t, CacheItem> items;
 
@@ -40,13 +39,13 @@ private:
 public:
     explicit Cache();
 
-    void addCacheItem(defs::GlobalAddress gaddr, char * data);
+    void addCacheItem(defs::GlobalAddress gaddr, char * data, size_t size);
 
     uint64_t removeCacheItem(defs::GlobalAddress ga);
 
     CacheItem *getCacheItem(defs::GlobalAddress ga);
 
-    void alterCacheItem(char * data, defs::GlobalAddress ga);
+    void alterCacheItem(char * data, defs::GlobalAddress ga, size_t size);
 
     defs::CACHE_DIRECTORY_STATE state;
 };

@@ -109,7 +109,7 @@ private:
     std::vector<Elem *> storage;
 
 
-    uint64_t hashBucket(uint64_t key) const { return hash(key) % storage.size(); }
+    [[nodiscard]] uint64_t hashBucket(uint64_t key) const { return hash(key) % storage.size(); }
 
 public:
     /**
@@ -118,8 +118,7 @@ public:
 
     explicit HashTable(Node *n) {
         node = n;
-        storage.resize(64);
-
+        storage = std::vector<Elem*>(64, nullptr);
     }
 
 
@@ -252,8 +251,6 @@ public:
                 auto castdata = reinterpret_cast<char *>(&value);
                 auto data = defs::Data(bucket->gaddr.size, castdata, bucket->gaddr);
                 node->write(data);
-                auto test = reinterpret_cast<V *>(node->read(bucket->gaddr));
-
                 return;
             }
             bucket = bucket->next;
@@ -288,7 +285,7 @@ public:
  */
     bool empty() const {
 
-        return !size();
+        return size() == 0;
     }
 
 /**

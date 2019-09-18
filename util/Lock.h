@@ -2,8 +2,8 @@
 // Created by Magdalena Pröbstl on 28.08.19.
 //
 
-#ifndef MEDMM_LOCKS_H
-#define MEDMM_LOCKS_H
+#ifndef MEDMM_LOCK_H
+#define MEDMM_LOCK_H
 
 
 #include "GlobalAddressHash.h"
@@ -22,4 +22,4 @@ struct __attribute__ ((packed)) Lock {
 
 
 
-#endif //MEDMM_LOCKS_H
+#endif //MEDMM_LOCK_H

@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <thread>
 #include <zconf.h>
-#include "../util/Locks.h"
+#include "../util/Lock.h"
 #include "Cache.h"
 #include "Connection.h"
 #include "../util/socket/tcp.h"
@@ -21,6 +21,18 @@
 
 class Node {
 private:
+    class ScopedLock {
+    public:
+        ScopedLock(defs::GlobalAddress &gaddr, Node &node, LOCK_STATES ls);
+
+        ~ScopedLock();
+
+    private:
+        defs::GlobalAddress &addr;
+        Node &node;
+    };
+
+
     size_t allocated = 0;
     rdma::Network network;
     uint16_t id;
@@ -60,22 +72,21 @@ private:
 
     char *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
-    void prepareForInvalidate(rdma::CompletionQueuePair &cq, Connection &c);
+    void prepareForInvalidate(Connection &c);
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, std::vector<uint16_t> nodes,
                             uint16_t srcID, Connection &c);
 
 
-    void broadcastInvalidations(std::vector<uint16_t> nodes, defs::GlobalAddress gaddr);
+    void broadcastInvalidations(std::vector<uint16_t> &nodes, defs::GlobalAddress gaddr);
 
     void sendFile(Connection &c, MaFile &file);
 
     void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
 
-    void
-    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block,
-                  defs::SendGlobalAddr *buffer);
+    defs::GlobalAddress
+    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
 
 
 public:
@@ -88,7 +99,7 @@ public:
 
     void closeClientSocket(Connection &c);
 
-    void *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
+    char *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
 
     defs::SendGlobalAddr sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
 
@@ -106,9 +117,9 @@ public:
 
     defs::GlobalAddress FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset);
 
-    void FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset, char* res);
+    void FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset, char *res);
 
-    char * read(defs::GlobalAddress gaddr);
+    char *read(defs::GlobalAddress gaddr);
 
     bool isLocal(defs::GlobalAddress gaddr);
 

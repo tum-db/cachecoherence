@@ -13,11 +13,12 @@ namespace defs {
     const char ip[] = "127.0.0.1";
     const uint16_t port = 3000;
 
-    constexpr size_t MAX_BLOCK_SIZE = 512 + 256 +128; // 912, bigger generates error
+    constexpr size_t MAX_BLOCK_SIZE = 512 + 256 + 128; // 912, bigger generates error
     const uint16_t locknode = 2000;
 
     constexpr size_t MAX_TEST_MEMORY_SIZE = 1024; //1024*100
 
+    const size_t MAX_CACHE_SIZE = 512;
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
 
     enum CACHE_DIRECTORY_STATE {
@@ -25,18 +26,6 @@ namespace defs {
         SHARED = 1,
         EXCLUS = 2
     };
-
-    struct RDNNBR {
-        uint16_t rdnnbr = 0;
-        const char * name;
-
-        RDNNBR() {
-            rdnnbr++;
-            std::string s = std::to_string(rdnnbr);
-            name = s.c_str();
-        };
-    };
-
 
     struct __attribute__ ((packed)) SendGlobalAddr {
         size_t size;
@@ -125,8 +114,6 @@ namespace defs {
     };
 
     struct SaveData {
-
-
         CACHE_DIRECTORY_STATE iscached;
         uint16_t ownerNode;
         std::vector<uint16_t> sharerNodes;

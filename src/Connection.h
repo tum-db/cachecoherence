@@ -14,12 +14,13 @@ class Connection {
 public:
     Connection(Connection &&c) noexcept;
 
-    Connection(std::unique_ptr<rdma::RcQueuePair> uniquePtr, l5::util::Socket s);
+    Connection(rdma::Network &network, l5::util::Socket &socket);
 
     Connection &operator=(Connection &&other) noexcept;
 
+   // ~Connection();
+
     std::unique_ptr<rdma::RcQueuePair> rcqp;
-    l5::util::Socket socket;
 
     std::unique_ptr<ibv::memoryregion::MemoryRegion> sendmr;
     std::unique_ptr<ibv::memoryregion::MemoryRegion> recvmr;
@@ -27,9 +28,7 @@ public:
     char *recvreg;
     char *sendreg;
 
-    ibv::memoryregion::RemoteAddress remoteMr;
-
-
+    ibv::memoryregion::RemoteAddress remoteMr{};
 };
 
 

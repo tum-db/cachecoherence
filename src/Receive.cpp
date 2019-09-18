@@ -3,12 +3,12 @@
 //
 
 
+#include <cassert>
 #include "Node.h"
 
 
 bool
 Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
-
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
@@ -18,7 +18,7 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
     auto recvrfd = reinterpret_cast<defs::ReadFileData *>(c.recvreg);
     defs::ReadFileData rfd = *recvrfd;
     std::cout << rfd.simplerequest << ", " << rfd.sga.size << std::endl;
-    if(!rfd.simplerequest) {
+    if (!rfd.simplerequest) {
         auto ack = true;
         memcpy(c.sendreg, &ack, sizeof(bool));
         auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
@@ -75,7 +75,7 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
             res = false;
             break;
         }
-        case defs::IMMDATA::INVALIDATE: {
+        case defs::IMMDATA::INVALIDATE: { //immdata = 7, invalidation
             handleInvalidation(cq, c, rfd);
             break;
         }
@@ -103,46 +103,19 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
 }
 
 void Node::connectAndReceive(uint16_t port) {
-
     auto soc = l5::util::Socket::create();
-    auto qp = std::make_unique<rdma::RcQueuePair>(
-            rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
-    auto c = Connection{std::move(qp),
-                        l5::util::Socket::create()};
     l5::util::tcp::bind(soc, port);
-    auto remoteAddr = rdma::Address{network.getGID(), c.rcqp->getQPN(), network.getLID()};
     std::cout << "now listening... " << std::endl;
     l5::util::tcp::listen(soc);
 
-    c.socket = l5::util::tcp::accept(soc);
+    auto acc = l5::util::tcp::accept(soc);
     std::cout << "and accepted" << std::endl;
     soc.close();
 
+    auto c = Connection(network, acc);
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
-
-    c.recvreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE *2));
-    c.sendreg = static_cast<char *>(malloc(defs::MAX_BLOCK_SIZE));
-
-    c.sendmr = network.registerMr(c.sendreg, defs::MAX_BLOCK_SIZE, {});
-    c.recvmr = network.registerMr(c.recvreg, defs::BIGBADBUFFER_SIZE * 2,
-                                  {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-
-
-    l5::util::tcp::write(c.socket, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(c.socket, &remoteAddr, sizeof(remoteAddr));
-
-    c.remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(c.recvreg),
-                                                       c.recvmr->getRkey()};
-    l5::util::tcp::write(c.socket, &c.remoteMr, sizeof(c.remoteMr));
-    l5::util::tcp::read(c.socket, &c.remoteMr, sizeof(c.remoteMr));
-
-
-
-    c.rcqp->connect(remoteAddr);
-    std::cout << "connected queuepair." << std::endl;
-
 
     auto &cq = network.getSharedCompletionQueue();
 
@@ -191,16 +164,13 @@ void Node::handleRead(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFi
 }
 
 bool Node::handleWrite(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
-
-
     auto data = defs::Data{rfd.size, c.recvreg, defs::GlobalAddress(rfd.sga)};
     auto olddata = reinterpret_cast<defs::SaveData *>(rfd.sga.ptr);
 
     if (olddata != nullptr) {
         if ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
             (!olddata->sharerNodes.empty()) && olddata->iscached < 3) {
-            startInvalidations(data, c.remoteMr, cq, olddata->sharerNodes, rfd.sga.srcID,
-                               c);
+            startInvalidations(data, c.remoteMr, cq, olddata->sharerNodes, rfd.sga.srcID, c);
             return false;
         } else {
             auto result = performWrite(data, rfd.sga.srcID).sendable(
@@ -227,7 +197,7 @@ void Node::handleInvalidation(rdma::CompletionQueuePair &cq, Connection &c,
                               defs::ReadFileData rfd) {
     auto res = cache.removeCacheItem(defs::GlobalAddress(rfd.sga));
     //  std::cout << "removed cacheitem" << std::endl;
-    std::memcpy(c.sendreg,&res, sizeof(uint64_t));
+    std::memcpy(c.sendreg, &res, sizeof(uint64_t));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -241,31 +211,37 @@ void Node::handleReset(rdma::CompletionQueuePair &cq, Connection &c) {
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     c.rcqp->setToResetState();
-    c.socket.close();
 }
 
 
 void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                               rdma::CompletionQueuePair &cq,
-
                               std::vector<uint16_t> nodes, uint16_t srcID, Connection &c) {
-    //  std::cout << "going to prepareForInvalidate" << std::endl;
+    //tell sender that we need to invalidate
+    std::cout << "tell sender that we need to invalidate" << std::endl;
     auto invalidation = data.ga.sendable(srcID);
     std::memcpy(c.sendreg, &invalidation, sizeof(defs::SendGlobalAddr));
-    auto write1 = defs::createWriteWithImm(c.sendmr->getSlice(), remoteAddr,
-                                           defs::IMMDATA::INVALIDATE);
-    c.rcqp->postWorkRequest(write1);
-    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    auto result = performWrite(data, srcID).sendable(srcID);
-    std::memcpy(c.sendreg, &result, sizeof(defs::SendGlobalAddr));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), remoteAddr,
-                                          defs::IMMDATA::DEFAULT);
+                                           defs::IMMDATA::INVALIDATE);
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    c.rcqp->setToResetState();
-    c.socket.close();
-    broadcastInvalidations(nodes, data.ga);
+    std::cout << "do write and send result of write" << std::endl;
 
+    //do write and send result of write
+    auto result = performWrite(data, srcID).sendable(srcID);
+    std::memcpy(c.sendreg, &result, sizeof(defs::SendGlobalAddr));
+    write = defs::createWriteWithImm(c.sendmr->getSlice(), remoteAddr,
+                                          defs::IMMDATA::DEFAULT);
+    c.rcqp->postWorkRequest(write);
+    std::this_thread::sleep_for(std::chrono_literals::operator ""ms(100));
+    std::cout << "waiting" << std::endl;
+
+    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
+    std::cout << "reset qp and start invalidation" << std::endl;
+    //reset qp and start invalidation
+    c.rcqp->setToResetState();
+    broadcastInvalidations(nodes, data.ga);
 }
 
 void Node::handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
@@ -291,8 +267,7 @@ void Node::handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFi
         auto wc = cq.pollRecvWorkCompletionBlocking();
         auto immData = wc.getImmData();
         try {
-            auto data = reinterpret_cast<uint64_t *>(c.recvreg);
-            block = reinterpret_cast<char *>(data);
+            block = const_cast<const char *>(c.recvreg);
 
             file.write_block(block, offset, immData);
         } catch (std::exception &e) {
@@ -300,6 +275,9 @@ void Node::handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFi
             std::cout << "not sending file done" << std::endl;
 
         }
+
+        std::memcpy(c.sendreg, &ok, sizeof(bool));
+
         c.rcqp->postWorkRequest(write);
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
         offset = offset + immData;
@@ -311,7 +289,6 @@ void Node::handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFi
 }
 
 void Node::handleMallocFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
-
     defs::SendGlobalAddr newgaddr{};
     std::cout << "mallocfile" << std::endl;
 
@@ -324,7 +301,7 @@ void Node::handleMallocFile(rdma::CompletionQueuePair &cq, Connection &c, defs::
         newgaddr = defs::GlobalAddress(0, filename, 0, true).sendable(0);
 
     }
-    std::memcpy(c.sendreg,&newgaddr, sizeof(defs::SendGlobalAddr));
+    std::memcpy(c.sendreg, &newgaddr, sizeof(defs::SendGlobalAddr));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
@@ -337,25 +314,24 @@ void Node::handleReadFile(rdma::CompletionQueuePair &cq, Connection &c, defs::Re
         block.resize(rfd.size);
 
         char *result = &block[0];
-        if (isLocal(gaddr)) {
-            auto f = MaFile(gaddr.ptr, MaFile::Mode::READ);
-            f.read_block(rfd.offset, rfd.size, result);
 
-//    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
-            std::memcpy(c.sendreg, result, rfd.size);
-            auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
-                                                  defs::IMMDATA::DEFAULT);
-            c.rcqp->postWorkRequest(write);
-            cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-        }
+        assert(isLocal(gaddr));
+
+        auto f = MaFile(gaddr.ptr, MaFile::Mode::READ);
+        f.read_block(rfd.offset, rfd.size, result);
+
+        //    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
+        std::memcpy(c.sendreg, result, rfd.size);
+        auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
+                                              defs::IMMDATA::DEFAULT);
+        c.rcqp->postWorkRequest(write);
+        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     }
 }
-
 
 void Node::handleWriteFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
     auto gaddr = defs::GlobalAddress(rfd.sga);
     if (gaddr.isFile) {
-
         auto castdata = reinterpret_cast<uint64_t *>(c.recvreg);
 
         std::cout << castdata << std::endl;
@@ -375,7 +351,5 @@ void Node::handleWriteFile(rdma::CompletionQueuePair &cq, Connection &c, defs::R
                                               defs::IMMDATA::DEFAULT);
         c.rcqp->postWorkRequest(write);
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-
-
     }
 }

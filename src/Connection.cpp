@@ -2,11 +2,13 @@
 // Created by Magdalena Pröbstl on 2019-07-25.
 //
 
+#include <thread>
 #include "Connection.h"
+#include "../util/defs.h"
+#include "../util/socket/tcp.h"
 
-Connection::Connection(Connection &&c) noexcept : rcqp(), socket() {
+Connection::Connection(Connection &&c) noexcept {
     rcqp = std::move(c.rcqp);
-    socket = std::move(c.socket);
     sendmr = std::move(c.sendmr);
     recvmr = std::move(c.recvmr);
 
@@ -14,16 +16,38 @@ Connection::Connection(Connection &&c) noexcept : rcqp(), socket() {
     sendreg = c.sendreg;
 
     remoteMr = c.remoteMr;
+
+    c.recvreg = nullptr;
+    c.sendreg = nullptr;
 }
 
-Connection::Connection(std::unique_ptr<rdma::RcQueuePair> uniquePtr, l5::util::Socket s) {
-    rcqp = std::move(uniquePtr);
-    socket = std::move(s);
+Connection::Connection(rdma::Network &network, l5::util::Socket &socket) {
+    rcqp = std::make_unique<rdma::RcQueuePair>(
+            rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
+
+    recvreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
+    sendreg = static_cast<char *>(malloc(defs::MAX_BLOCK_SIZE));
+
+    auto remoteAddr = rdma::Address{network.getGID(), rcqp->getQPN(), network.getLID()};
+    sendmr = network.registerMr(sendreg, defs::MAX_BLOCK_SIZE, {});
+    recvmr = network.registerMr(recvreg, defs::BIGBADBUFFER_SIZE*2,
+                                  {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
+
+    l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
+
+    remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvreg),
+                                                  recvmr->getRkey()};
+
+    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
+    rcqp->connect(remoteAddr);
+
+    socket.close();
 }
 
 Connection &Connection::operator=(Connection &&other) noexcept {
     rcqp = std::move(other.rcqp);
-    socket = std::move(other.socket);
     sendmr = std::move(other.sendmr);
     recvmr = std::move(other.recvmr);
 
@@ -31,5 +55,17 @@ Connection &Connection::operator=(Connection &&other) noexcept {
     sendreg = other.sendreg;
 
     remoteMr = other.remoteMr;
+
+    other.recvreg = nullptr;
+    other.sendreg = nullptr;
+
     return *this;
 }
+/*
+Connection::~Connection() {
+    std::cout << "DESTRUCTION" << std::endl;
+    free(recvreg);
+    free(sendreg);
+
+}
+*/
