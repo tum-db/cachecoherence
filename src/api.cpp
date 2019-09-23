@@ -14,9 +14,9 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
 
     auto msize = sizeof(defs::SaveData) + size;
     void *alloced = malloc(msize);
-    if (alloced) {
+    if (alloced && allocated < defs::MAX_TEST_MEMORY_SIZE) {
         auto *buffer = new(alloced) defs::SaveData();
-        //allocated = allocated + msize;
+        allocated = allocated + msize;
         auto gaddr = defs::GlobalAddress{size, buffer, id, false};
         return gaddr;
     } else {
@@ -55,7 +55,7 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr, uint16_t srcID) {
 
             broadcastInvalidations(d->sharerNodes, gaddr);
         }
-        //  allocated = allocated - (sizeof(defs::SaveData) + gaddr.size);
+        allocated = allocated - (sizeof(defs::SaveData) + gaddr.size);
         free(gaddr.ptr);
 
         gaddr.ptr = nullptr;

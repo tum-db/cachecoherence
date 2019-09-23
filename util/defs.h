@@ -16,10 +16,11 @@ namespace defs {
     constexpr size_t MAX_BLOCK_SIZE = 512 + 256 + 128; // 912, bigger generates error
     const uint16_t locknode = 2000;
 
-    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024; //1024*100
+    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024*1024*1024; //1024*100
 
     const size_t MAX_CACHE_SIZE = 512;
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
+
 
     enum CACHE_DIRECTORY_STATE {
         UNSHARED = 0,
