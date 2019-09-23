@@ -167,7 +167,7 @@ public:
                 } else {
                     storage[b] = bucket->next;
                 }
-                node->Free(bucket->gaddr);
+                node->Free(bucket->gaddr, node->getID());
                 delete (bucket);
                 --amountElements;
                 return;
@@ -297,7 +297,7 @@ public:
             while (b != nullptr) {
                 Elem *oldBucket = b;
                 b = oldBucket->next;
-                node->Free(oldBucket->gaddr);
+                node->Free(oldBucket->gaddr, node->getID());
             }
         }
         amountElements = 0;

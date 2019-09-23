@@ -56,7 +56,7 @@ int main(int, const char **args) {
         std::cout << "Trying to read with the new connection "<< std::endl;
         auto result3 = clientnode.read(test);
         std::cout << "Done. Result: "<< result3 << ", now we free the memory"<< std::endl;
-        clientnode.Free(test);
+        clientnode.Free(test, clientnode.getID());
         std::cout << "Done freeing. " << std::endl;
     }
     int serverStatus = 1;

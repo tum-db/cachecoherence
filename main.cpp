@@ -199,10 +199,10 @@ int main() {
         std::cout << "Done. Result: " << *reinterpret_cast<uint64_t *>(result2)<< ", now we free the memory"
                   << std::endl;
 
-        node.Free(test);
+        node.Free(test, node.getID());
         std::cout << "freed one" << std::endl;
 
-        node.Free(test2);
+        node.Free(test2, node.getID());
 
         std::cout << "Done freeing. " << std::endl;
 

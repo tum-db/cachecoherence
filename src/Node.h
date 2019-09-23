@@ -91,7 +91,7 @@ private:
 
 public:
 
-    explicit Node();
+    explicit Node(uint16_t id = 0);
 
     char *getNextFileName();
 
@@ -111,7 +111,7 @@ public:
 
     defs::GlobalAddress Malloc(size_t size, uint16_t srcID);
 
-    defs::GlobalAddress Free(defs::GlobalAddress gaddr);
+    defs::GlobalAddress Free(defs::GlobalAddress gaddr, uint16_t srcID);
 
     defs::GlobalAddress write(defs::Data data);
 

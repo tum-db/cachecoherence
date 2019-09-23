@@ -136,7 +136,7 @@ void Node::handleAllocation(rdma::CompletionQueuePair &cq, Connection &c, defs::
 
 void Node::handleFree(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd) {
     auto gaddr = defs::GlobalAddress(rfd.sga);
-    auto res = Free(gaddr).sendable(rfd.sga.srcID);
+    auto res = Free(gaddr, rfd.sga.srcID).sendable(rfd.sga.srcID);
     std::memcpy(c.sendreg, &res, sizeof(defs::SendGlobalAddr));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
@@ -168,9 +168,13 @@ bool Node::handleWrite(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadF
     auto olddata = reinterpret_cast<defs::SaveData *>(rfd.sga.ptr);
 
     if (olddata != nullptr) {
+        std::cout << (olddata->ownerNode != rfd.sga.srcID)  << std::endl;
+        std::cout << ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
+                      (!olddata->sharerNodes.empty()) && (olddata->ownerNode != rfd.sga.srcID) && olddata->iscached < 3) << std::endl;
         if ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
-            (!olddata->sharerNodes.empty()) && olddata->iscached < 3) {
+            (!olddata->sharerNodes.empty()) && (olddata->ownerNode != rfd.sga.srcID) && olddata->iscached < 3) {
             startInvalidations(data, c.remoteMr, cq, olddata->sharerNodes, rfd.sga.srcID, c);
+            olddata->sharerNodes = {};
             return false;
         } else {
             auto result = performWrite(data, rfd.sga.srcID).sendable(
@@ -233,7 +237,7 @@ void Node::startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress 
     write = defs::createWriteWithImm(c.sendmr->getSlice(), remoteAddr,
                                           defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
-    std::this_thread::sleep_for(std::chrono_literals::operator ""ms(100));
+   // std::this_thread::sleep_for(std::chrono_literals::operator ""ms(100));
     std::cout << "waiting" << std::endl;
 
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);

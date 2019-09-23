@@ -95,6 +95,7 @@ defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData,
         memcpy(&sga, c.recvreg, sizeof(defs::SendGlobalAddr));
 
         prepareForInvalidate(c);
+        std::this_thread::sleep_for(std::chrono_literals::operator ""ms(100));
 
         return sga;
     }
@@ -140,8 +141,6 @@ bool Node::sendLock(Lock lock, defs::IMMDATA immData, Connection &c) {
 void Node::prepareForInvalidate(Connection &c) {
     c.rcqp->setToResetState();
     connectAndReceive(id);
-    auto newcon = connectClientSocket(3000);
-    c = std::move(newcon);
 }
 
 void Node::broadcastInvalidations(std::vector<uint16_t> &nodes,

@@ -18,6 +18,7 @@ public:
 
     Connection &operator=(Connection &&other) noexcept;
 
+    //TODO: destructor & recycling of a connection
    // ~Connection();
 
     std::unique_ptr<rdma::RcQueuePair> rcqp;

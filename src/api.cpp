@@ -43,7 +43,7 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
 }
 
 
-defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
+defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr, uint16_t srcID) {
     if (isLocal(gaddr)) {
 
         auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
@@ -51,9 +51,7 @@ defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr) {
 
         if (d->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED &&
             d->iscached <= defs::CACHE_DIRECTORY_STATE::SHARED &&
-            !d->sharerNodes.empty()) {
-            std::cout << ", " << d->iscached << ", " << d->ownerNode << ", "
-                      << d->sharerNodes[0] << std::endl;
+            !d->sharerNodes.empty() && (d->ownerNode != srcID) ) {
 
             broadcastInvalidations(d->sharerNodes, gaddr);
         }
