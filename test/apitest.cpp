@@ -27,15 +27,15 @@ int main(int, const char **args) {
     }
     const auto client = fork();
     if (client == 0) {
-        auto clientnode = Node();
+        Node clientnode;
         clientnode.setID(2000);
-        auto conn = clientnode.connectClientSocket(3000);
+        clientnode.connectClientSocket(3000);
         char* d = "Servus"; // need to cast data to uint64_t
         size_t size = strlen(d)*sizeof(char)+1;
         std::cout << "Trying to Malloc" << std::endl;
         auto firstgaddr = defs::GlobalAddress(size, nullptr ,0, false);
-        void *recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC, conn);
-        clientnode.closeClientSocket(conn);
+        void *recv = clientnode.sendAddress(firstgaddr.sendable(clientnode.getID()), defs::IMMDATA::MALLOC);
+        clientnode.closeClientSocket();
         auto test = defs::GlobalAddress(*reinterpret_cast<defs::SendGlobalAddr *>(recv));
         std::cout << "Got GAddr: " << test.id << ", " << test.size <<", " << test.ptr << std::endl;
         auto data = defs::Data(sizeof(uint64_t), d, test);

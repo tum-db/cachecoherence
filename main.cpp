@@ -156,10 +156,9 @@ int main() {
         auto firstgaddr = defs::GlobalAddress(size, nullptr, 0, 0);
 
         std::cout << "Trying to Malloc" << std::endl;
-        auto conn = node.connectClientSocket(3000);
-        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC,
-                                     conn);
-        node.closeClientSocket(conn);
+        node.connectClientSocket(3000);
+        auto recv = node.sendAddress(firstgaddr.sendable(node.getID()), defs::IMMDATA::MALLOC);
+        node.closeClientSocket();
 
         auto test = defs::GlobalAddress(*reinterpret_cast<defs::SendGlobalAddr *>(recv));
 

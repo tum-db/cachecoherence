@@ -8,6 +8,7 @@
 #include "../util/socket/tcp.h"
 
 Connection::Connection(Connection &&c) noexcept {
+
     rcqp = std::move(c.rcqp);
     sendmr = std::move(c.sendmr);
     recvmr = std::move(c.recvmr);
@@ -21,29 +22,18 @@ Connection::Connection(Connection &&c) noexcept {
     c.sendreg = nullptr;
 }
 
-Connection::Connection(rdma::Network &network, l5::util::Socket &socket) {
+Connection::Connection(rdma::Network &network) {
     rcqp = std::make_unique<rdma::RcQueuePair>(
             rdma::RcQueuePair(network, network.getSharedCompletionQueue()));
 
     recvreg = static_cast<char *>(malloc(defs::BIGBADBUFFER_SIZE*2));
     sendreg = static_cast<char *>(malloc(defs::MAX_BLOCK_SIZE));
 
-    auto remoteAddr = rdma::Address{network.getGID(), rcqp->getQPN(), network.getLID()};
     sendmr = network.registerMr(sendreg, defs::MAX_BLOCK_SIZE, {});
     recvmr = network.registerMr(recvreg, defs::BIGBADBUFFER_SIZE*2,
                                   {ibv::AccessFlag::LOCAL_WRITE, ibv::AccessFlag::REMOTE_WRITE});
-
-    l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
-    l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
-
     remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvreg),
-                                                  recvmr->getRkey()};
-
-    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
-    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
-    rcqp->connect(remoteAddr);
-
-    socket.close();
+                                                recvmr->getRkey()};
 }
 
 Connection &Connection::operator=(Connection &&other) noexcept {
@@ -60,6 +50,23 @@ Connection &Connection::operator=(Connection &&other) noexcept {
     other.sendreg = nullptr;
 
     return *this;
+}
+
+void Connection::connect(rdma::Network &network, l5::util::Socket &socket){
+    auto remoteAddr = rdma::Address{network.getGID(), rcqp->getQPN(), network.getLID()};
+    l5::util::tcp::write(socket, &remoteAddr, sizeof(remoteAddr));
+    l5::util::tcp::read(socket, &remoteAddr, sizeof(remoteAddr));
+
+    l5::util::tcp::write(socket, &remoteMr, sizeof(remoteMr));
+    l5::util::tcp::read(socket, &remoteMr, sizeof(remoteMr));
+    rcqp->connect(remoteAddr);
+    socket.close();
+}
+
+void Connection::close(){
+    rcqp->setToResetState();
+    remoteMr = ibv::memoryregion::RemoteAddress{reinterpret_cast<uintptr_t>(recvreg),
+                                                recvmr->getRkey()};
 }
 /*
 Connection::~Connection() {

@@ -5,8 +5,8 @@
 #include "Node.h"
 
 #include <cstdlib>
-Node::Node(uint16_t id)
-        : network(), id(id), locks(), cache() {
+Node::Node()
+        : network(), id(0), locks(), cache(), c(network) {
 }
 
 bool Node::isLocal(defs::GlobalAddress gaddr) {

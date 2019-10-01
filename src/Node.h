@@ -38,70 +38,70 @@ private:
     uint16_t id;
     std::unordered_map<uint64_t, Lock> locks;
     Cache cache;
-
+    Connection c;
 
     uint16_t filenamesnbr = 0;
 
 
-    void handleLocks(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleLocks(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleAllocation(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleAllocation(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleMallocFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleMallocFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleFree(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleFree(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleRead(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleRead(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleReadFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleReadFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    bool handleWrite(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    bool handleWrite(rdma::CompletionQueuePair &cq,  defs::ReadFileData rfd);
 
-    void handleWriteFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleWriteFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd);
 
-    void handleInvalidation(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleInvalidation(rdma::CompletionQueuePair &cq,  defs::ReadFileData rfd);
 
-    void handleReset(rdma::CompletionQueuePair &cq, Connection &c);
+    void handleReset(rdma::CompletionQueuePair &cq);
 
-    void handleFile(rdma::CompletionQueuePair &cq, Connection &c, defs::ReadFileData rfd);
+    void handleFile(rdma::CompletionQueuePair &cq,defs::ReadFileData rfd);
 
-    bool sendLock(Lock lock, defs::IMMDATA immData, Connection &c);
+    bool sendLock(Lock lock, defs::IMMDATA immData);
 
 
     defs::GlobalAddress performWrite(defs::Data data, uint16_t srcID);
 
     char *performRead(defs::GlobalAddress gaddr, uint16_t srcID);
 
-    void prepareForInvalidate(Connection &c);
+    void prepareForInvalidate();
 
     void startInvalidations(defs::Data data, ibv::memoryregion::RemoteAddress remoteAddr,
                             rdma::CompletionQueuePair &cq, std::vector<uint16_t> nodes,
-                            uint16_t srcID, Connection &c);
+                            uint16_t srcID);
 
 
     void broadcastInvalidations(std::vector<uint16_t> &nodes, defs::GlobalAddress gaddr);
 
-    void sendFile(Connection &c, MaFile &file);
+    void sendFile(MaFile &file);
 
-    void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block);
+    void sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, char *block);
 
     defs::GlobalAddress
-    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, uint64_t *block);
+    sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, uint64_t *block);
 
 
 public:
 
-    explicit Node(uint16_t id = 0);
+    explicit Node();
 
     char *getNextFileName();
 
-    Connection connectClientSocket(uint16_t port);
+    void connectClientSocket(uint16_t port);
 
-    void closeClientSocket(Connection &c);
+    void closeClientSocket();
 
-    char *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData, Connection &c);
+    char *sendAddress(defs::SendGlobalAddr data, defs::IMMDATA immData);
 
-    defs::SendGlobalAddr sendData(defs::SendingData data, defs::IMMDATA immData, Connection &c);
+    defs::SendGlobalAddr sendData(defs::SendingData data, defs::IMMDATA immData);
 
     bool setLock(uint64_t lockId, LOCK_STATES state, uint16_t nodeId);
 

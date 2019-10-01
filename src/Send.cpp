@@ -5,7 +5,7 @@
 #include "Node.h"
 
 
-Connection Node::connectClientSocket(uint16_t port) {
+void Node::connectClientSocket(uint16_t port) {
     auto socket = l5::util::Socket::create();
     for (int i = 0;; ++i) {
         try {
@@ -16,23 +16,22 @@ Connection Node::connectClientSocket(uint16_t port) {
             if (i > 10) throw;
         }
     }
-   auto c = Connection(network, socket);
+    c.connect(network, socket);
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
     // TODO: move to ctor and check if free is needed
-    return c;
 }
 
-void Node::closeClientSocket(Connection &c) {
+void Node::closeClientSocket() {
     auto fakeLock = Lock{id, LOCK_STATES::UNLOCKED, id};
 
-    sendLock(fakeLock, defs::RESET, c);
-    c.rcqp->setToResetState();
+    sendLock(fakeLock, defs::RESET);
+    c.close();
 }
 
 
-char *Node::sendAddress(defs::SendGlobalAddr sga, defs::IMMDATA immData, Connection &c) {
+char *Node::sendAddress(defs::SendGlobalAddr sga, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
     auto data = defs::ReadFileData{true, sga, 0, 0};
     std::memcpy(c.sendreg, &data, sizeof(data));
@@ -54,7 +53,7 @@ char *Node::sendAddress(defs::SendGlobalAddr sga, defs::IMMDATA immData, Connect
 }
 
 
-defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData, Connection &c) {
+defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
     auto data = defs::ReadFileData{false, sd.sga, 0, sd.size};
 
@@ -94,7 +93,7 @@ defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData,
         defs::SendGlobalAddr sga{};
         memcpy(&sga, c.recvreg, sizeof(defs::SendGlobalAddr));
 
-        prepareForInvalidate(c);
+        prepareForInvalidate();
         std::this_thread::sleep_for(std::chrono_literals::operator ""ms(100));
 
         return sga;
@@ -105,9 +104,9 @@ defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData,
     return sga;
 }
 
-bool Node::sendLock(Lock lock, defs::IMMDATA immData, Connection &c) {
+bool Node::sendLock(Lock lock, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
-    auto data = defs::ReadFileData{false, defs::SendGlobalAddr{0, 0,0,id,false}, 0, 0};
+    auto data = defs::ReadFileData{false, defs::SendGlobalAddr{0, 0, 0, id, false}, 0, 0};
 
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
@@ -138,8 +137,8 @@ bool Node::sendLock(Lock lock, defs::IMMDATA immData, Connection &c) {
 
 }
 
-void Node::prepareForInvalidate(Connection &c) {
-    c.rcqp->setToResetState();
+void Node::prepareForInvalidate() {
+    c.close();
     connectAndReceive(id);
 }
 
@@ -149,16 +148,16 @@ void Node::broadcastInvalidations(std::vector<uint16_t> &nodes,
         std::cout << "invalidation of node " << n << std::endl;
         auto invalidateClient = fork();
         if (invalidateClient == 0) {
-            auto connection = connectClientSocket(n);
-            sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE, connection);
-            closeClientSocket(connection);
+            connectClientSocket(n);
+            sendAddress(gaddr.sendable(id), defs::IMMDATA::INVALIDATE);
+            closeClientSocket();
         }
     }
     std::cout << "done invaldating" << std::endl;
 }
 
 
-void Node::sendFile(Connection &c, MaFile &file) {
+void Node::sendFile(MaFile &file) {
     std::cout << "filesize: " << file.size() << std::endl;
     size_t blocksize = defs::MAX_BLOCK_SIZE;
     auto fileinfo = defs::FileInfo{file.size(), blocksize};
@@ -207,7 +206,7 @@ void Node::sendFile(Connection &c, MaFile &file) {
 }
 
 void
-Node::sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c, char *block) {
+Node::sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, char *block) {
     auto &cq = network.getSharedCompletionQueue();
 
     memcpy(c.sendreg, &data, sizeof(defs::ReadFileData));
@@ -222,8 +221,8 @@ Node::sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c
     memcpy(block, c.recvreg, data.size);
 }
 
-defs::GlobalAddress Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, Connection &c,
-                    uint64_t *block) {
+defs::GlobalAddress
+Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, uint64_t *block) {
     auto &cq = network.getSharedCompletionQueue();
     memcpy(c.sendreg, &data, sizeof(defs::ReadFileData));
 
@@ -246,8 +245,7 @@ defs::GlobalAddress Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA i
 
         cq.pollRecvWorkCompletionBlocking();
         return defs::GlobalAddress(*reinterpret_cast<defs::SendGlobalAddr *>(c.recvreg));
-    }
-    else {
+    } else {
         throw std::runtime_error("Remote Node did not send ACK.");
     }
 }

@@ -14,13 +14,12 @@ class Connection {
 public:
     Connection(Connection &&c) noexcept;
 
-    Connection(rdma::Network &network, l5::util::Socket &socket);
+    Connection(rdma::Network &network);
 
     Connection &operator=(Connection &&other) noexcept;
 
     //TODO: destructor & recycling of a connection
    // ~Connection();
-
     std::unique_ptr<rdma::RcQueuePair> rcqp;
 
     std::unique_ptr<ibv::memoryregion::MemoryRegion> sendmr;
@@ -30,6 +29,10 @@ public:
     char *sendreg;
 
     ibv::memoryregion::RemoteAddress remoteMr{};
+
+    void connect(rdma::Network &network, l5::util::Socket &socket);
+
+    void close();
 };
 
 
