@@ -20,6 +20,9 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
         auto gaddr = defs::GlobalAddress{size, buffer, id, false};
         return gaddr;
     } else {
+        free(alloced);
+     //   std::cout <<"remote"<< std::endl;
+
         if (srcID != id) {
             return defs::GlobalAddress{size, nullptr, 0, true};
         }
@@ -33,7 +36,7 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
         if (sga == nullptr) {
             throw std::runtime_error("No more free memory!");
         }
-        c.close();
+        closeClientSocket();
         return defs::GlobalAddress(*sga);
 
     }
@@ -83,7 +86,7 @@ char *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
         auto data = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
 
         if (data->iscached < 0 || data->iscached > 2) {
-            std::cout << data->iscached << std::endl;
+         //   std::cout << data->iscached << std::endl;
             return nullptr;
         }
         if (srcID != id) {
@@ -92,10 +95,10 @@ char *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
         }
         return gaddr.ptr + sizeof(defs::SaveData);
     } else {
-        std::cout << "not local" << std::endl;
+        //     std::cout << "not local" << std::endl;
         auto cacheItem = cache.getCacheItem(gaddr);
         if (cacheItem == nullptr || gaddr.size != cacheItem->globalAddress.size) {
-            std::cout << "not cached" << std::endl;
+       //     std::cout << "not cached" << std::endl;
 
             auto port = defs::port;
             connectClientSocket(port);
@@ -105,9 +108,8 @@ char *Node::performRead(defs::GlobalAddress gaddr, uint16_t srcID) {
             closeClientSocket();
             return &cache.getCacheItem(gaddr)->data[0];
         } else {
-            std::cout << "cached" << std::endl;
-            std::cout << &cacheItem->data[0] << ", "
-                      << reinterpret_cast<void *>(cacheItem->globalAddress.ptr) << std::endl;
+         //   std::cout << "cached" << std::endl;
+       //     std::cout << &cacheItem->data[0] << ", " << reinterpret_cast<void *>(cacheItem->globalAddress.ptr) << std::endl;
             return &cacheItem->data[0];
         }
     }
@@ -154,7 +156,7 @@ defs::GlobalAddress Node::write(defs::Data data) {
         if (d->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED &&
             d->iscached <= defs::CACHE_DIRECTORY_STATE::SHARED &&
             !d->sharerNodes.empty()) {
-            std::cout << "invalidating??" << std::endl;
+       //     std::cout << "invalidating??" << std::endl;
             broadcastInvalidations(d->sharerNodes, data.ga);
         }
         d->sharerNodes = {};

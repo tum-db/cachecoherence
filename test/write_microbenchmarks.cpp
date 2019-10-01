@@ -1,6 +1,7 @@
 //
-// Created by Magdalena Pröbstl on 2019-08-12.
+// Created by Magdalena Pröbstl on 01.10.19.
 //
+
 #include <src/Node.h>
 #include "PerfEvent.hpp"
 
@@ -10,12 +11,17 @@ int main() {
     clientnode.setID(2000);
 // Define some global params
     BenchmarkParameters params;
-    params.setParam("name", "Test of Malloc");
+    params.setParam("name", "Test of Local Write");
     std::vector<uint64_t> testdata(defs::MAX_BLOCK_SIZE / sizeof(uint64_t), 123);
     params.setParam("dataSize", testdata.size());
 
     int maxThreads = 3000;
-    std::vector<defs::GlobalAddress> gaddrs;
+    auto gaddrlocal = clientnode.Malloc(testdata.size(), clientnode.getID());
+    clientnode.connectClientSocket(3000);
+    auto recv = clientnode.sendAddress(gaddrlocal.sendable(clientnode.getID()), defs::IMMDATA::MALLOC);
+    clientnode.closeClientSocket();
+
+    auto gaddrremote = defs::GlobalAddress(*reinterpret_cast<defs::SendGlobalAddr *>(recv));
     for (int threads = 1; threads < maxThreads; ++threads) {
 
 // Change local parameters like num threads
@@ -27,30 +33,34 @@ int main() {
         PerfEventBlock e(1, params, printHeader);
 // Counter are started in constructor
 
+        defs::Data d{testdata.size(), reinterpret_cast<char *>(testdata.data()), gaddrlocal};
 
-
-
-        gaddrs.push_back(clientnode.Malloc(testdata.size(), clientnode.getID()));
+        clientnode.write(d);
 
 // Benchmark counters are automatically stopped and printed on destruction of e
     }
-    params.setParam("name", "Test of Free");
-    params.setParam("dataSize", testdata.size());
+
+    params.setParam("name", "Test of Remote Write");
     for (int threads = 1; threads < maxThreads; ++threads) {
 
 // Change local parameters like num threads
-        params.setParam("threads", 3000-threads);
+        params.setParam("threads", threads);
 
 // Only print the header for the first iteration
-        bool printHeader = threads == 1;
+        bool printHeader = false;
 
         PerfEventBlock e(1, params, printHeader);
 // Counter are started in constructor
-        clientnode.Free(gaddrs.back(), clientnode.getID());
-        gaddrs.pop_back();
+
+        defs::Data d{testdata.size(), reinterpret_cast<char *>(testdata.data()), gaddrremote};
+
+        clientnode.write(d);
 
 // Benchmark counters are automatically stopped and printed on destruction of e
     }
+
+    clientnode.Free(gaddrlocal, clientnode.getID());
+    clientnode.Free(gaddrremote, clientnode.getID());
 
 
     return 1;

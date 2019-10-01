@@ -12,30 +12,26 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
     auto recv = ibv::workrequest::Recv{};
     recv.setSge(nullptr, 0);
     c.rcqp->postRecvRequest(recv);
-    std::cout << "receive" << std::endl;
     auto wc = cq.pollRecvWorkCompletionBlocking();
 
     auto recvrfd = reinterpret_cast<defs::ReadFileData *>(c.recvreg);
     defs::ReadFileData rfd = *recvrfd;
-    std::cout << rfd.simplerequest << ", " << rfd.sga.size << std::endl;
     if (!rfd.simplerequest) {
         auto ack = true;
         memcpy(c.sendreg, &ack, sizeof(bool));
         auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
                                               defs::IMMDATA::DEFAULT);
         c.rcqp->postWorkRequest(write);
-        std::cout << "send" << std::endl;
 
         cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 
         recv = ibv::workrequest::Recv{};
         recv.setSge(nullptr, 0);
         c.rcqp->postRecvRequest(recv);
-        std::cout << "receive" << std::endl;
         wc = cq.pollRecvWorkCompletionBlocking();
     }
     auto immData = wc.getImmData();
-    std::cout << "got this immdata: " << immData << std::endl;
+  //  std::cout << "got this immdata: " << immData << std::endl;
     auto res = true;
     switch (immData) {
         case defs::IMMDATA::MALLOC:  //immdata = 1, if it comes from another server
@@ -51,7 +47,6 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
         }
         case defs::IMMDATA::FREE://immdata = 3, it should be freed
         {
-
             handleFree(cq, rfd);
             break;
         }
@@ -59,7 +54,7 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
         {
 
             res = handleWrite(cq, rfd);
-            std::cout << "result of write: " << res << std::endl;
+   //         std::cout << "result of write: " << res << std::endl;
             break;
 
         }
@@ -109,7 +104,7 @@ void Node::connectAndReceive(uint16_t port) {
     l5::util::tcp::listen(soc);
 
     auto acc = l5::util::tcp::accept(soc);
-    std::cout << "and accepted" << std::endl;
+  //  std::cout << "and accepted" << std::endl;
     soc.close();
 
     c.connect(network, acc);
@@ -168,10 +163,6 @@ bool Node::handleWrite(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd) {
     auto olddata = reinterpret_cast<defs::SaveData *>(rfd.sga.ptr);
 
     if (olddata != nullptr) {
-        std::cout << (olddata->ownerNode != rfd.sga.srcID) << std::endl;
-        std::cout << ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
-                      (!olddata->sharerNodes.empty()) && (olddata->ownerNode != rfd.sga.srcID) &&
-                      olddata->iscached < 3) << std::endl;
         if ((olddata->iscached > defs::CACHE_DIRECTORY_STATE::UNSHARED) &&
             (!olddata->sharerNodes.empty()) && (olddata->ownerNode != rfd.sga.srcID) &&
             olddata->iscached < 3) {
@@ -217,6 +208,7 @@ void Node::handleReset(rdma::CompletionQueuePair &cq) {
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
     c.close();
+    std::cout << "closed" << std::endl;
 }
 
 

@@ -13,7 +13,7 @@ void Node::connectClientSocket(uint16_t port) {
             break;
         } catch (std::exception &e) {
             std::this_thread::sleep_for(std::chrono_literals::operator ""ms(20));
-            if (i > 10) throw;
+            if (i > 30) throw;
         }
     }
     c.connect(network, socket);
@@ -33,7 +33,7 @@ void Node::closeClientSocket() {
 
 char *Node::sendAddress(defs::SendGlobalAddr sga, defs::IMMDATA immData) {
     auto &cq = network.getSharedCompletionQueue();
-    auto data = defs::ReadFileData{true, sga, 0, 0};
+    auto data = defs::ReadFileData{true, sga, 0, sga.size};
     std::memcpy(c.sendreg, &data, sizeof(data));
 
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, immData);
@@ -49,7 +49,6 @@ char *Node::sendAddress(defs::SendGlobalAddr sga, defs::IMMDATA immData) {
     cq.pollRecvWorkCompletionBlocking();
 
     return c.recvreg;
-
 }
 
 
@@ -80,13 +79,13 @@ defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData)
 
     auto newImmData = wc.getImmData();
 
-    std::cout << "got immdata: " << newImmData << std::endl;
+  //  std::cout << "got immdata: " << newImmData << std::endl;
 
     if (newImmData == defs::IMMDATA::INVALIDATE) {
         recv = ibv::workrequest::Recv{};
         recv.setSge(nullptr, 0);
         c.rcqp->postRecvRequest(recv);
-        std::cout << "waiting" << std::endl;
+     //   std::cout << "waiting" << std::endl;
 
         cq.pollRecvWorkCompletionBlocking();
 
@@ -145,7 +144,7 @@ void Node::prepareForInvalidate() {
 void Node::broadcastInvalidations(std::vector<uint16_t> &nodes,
                                   defs::GlobalAddress gaddr) {
     for (const auto &n: nodes) {
-        std::cout << "invalidation of node " << n << std::endl;
+    //    std::cout << "invalidation of node " << n << std::endl;
         auto invalidateClient = fork();
         if (invalidateClient == 0) {
             connectClientSocket(n);
@@ -153,12 +152,12 @@ void Node::broadcastInvalidations(std::vector<uint16_t> &nodes,
             closeClientSocket();
         }
     }
-    std::cout << "done invaldating" << std::endl;
+//    std::cout << "done invaldating" << std::endl;
 }
 
 
 void Node::sendFile(MaFile &file) {
-    std::cout << "filesize: " << file.size() << std::endl;
+  //  std::cout << "filesize: " << file.size() << std::endl;
     size_t blocksize = defs::MAX_BLOCK_SIZE;
     auto fileinfo = defs::FileInfo{file.size(), blocksize};
 
