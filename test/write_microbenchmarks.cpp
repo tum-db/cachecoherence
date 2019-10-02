@@ -11,7 +11,7 @@ int main() {
     clientnode.setID(2000);
 // Define some global params
     BenchmarkParameters params;
-    params.setParam("name", "Test of Local Write");
+    params.setParam("name", "Local Write");
     std::vector<uint64_t> testdata(defs::MAX_BLOCK_SIZE / sizeof(uint64_t), 123);
     params.setParam("dataSize", testdata.size());
 
@@ -40,7 +40,7 @@ int main() {
 // Benchmark counters are automatically stopped and printed on destruction of e
     }
 
-    params.setParam("name", "Test of Remote Write");
+    params.setParam("name", "Remote Write");
     for (int threads = 1; threads < maxThreads; ++threads) {
 
 // Change local parameters like num threads

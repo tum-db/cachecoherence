@@ -144,7 +144,7 @@ void Node::handleLocks(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd) {
     std::memcpy(c.sendreg, &lock, sizeof(Lock));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, defs::IMMDATA::DEFAULT);
     c.rcqp->postWorkRequest(write);
-    std::cout << "send" << std::endl;
+    //std::cout << "send" << std::endl;
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
 }
 
