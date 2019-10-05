@@ -218,10 +218,9 @@ Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset)
     } else {
         auto port = defs::port;
         connectClientSocket(port);
-        auto castdata = reinterpret_cast<uint64_t *>(data);
 
         auto senddata = defs::ReadFileData{false, gaddr.sendable(id), offset, size};
-        auto ga = sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, castdata);
+        auto ga = sendWriteFile(senddata, defs::IMMDATA::WRITEFILE, data);
 
         closeClientSocket();
 

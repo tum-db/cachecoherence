@@ -31,7 +31,7 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
         wc = cq.pollRecvWorkCompletionBlocking();
     }
     auto immData = wc.getImmData();
-  //  std::cout << "got this immdata: " << immData << std::endl;
+    //  std::cout << "got this immdata: " << immData << std::endl;
     auto res = true;
     switch (immData) {
         case defs::IMMDATA::MALLOC:  //immdata = 1, if it comes from another server
@@ -54,7 +54,7 @@ Node::receive(Connection &c, rdma::CompletionQueuePair &cq) {
         {
 
             res = handleWrite(cq, rfd);
-   //         std::cout << "result of write: " << res << std::endl;
+            //         std::cout << "result of write: " << res << std::endl;
             break;
 
         }
@@ -104,7 +104,7 @@ void Node::connectAndReceive(uint16_t port) {
     l5::util::tcp::listen(soc);
 
     auto acc = l5::util::tcp::accept(soc);
-  //  std::cout << "and accepted" << std::endl;
+    //  std::cout << "and accepted" << std::endl;
     soc.close();
 
     c.connect(network, acc);
@@ -307,47 +307,47 @@ void Node::handleMallocFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rf
 
 void Node::handleReadFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd) {
     auto gaddr = defs::GlobalAddress(rfd.sga);
-    if (gaddr.isFile) {
-        std::vector<char> block;
-        block.resize(rfd.size);
+    assert(gaddr.isFile);
+    std::vector<char> block;
+    block.resize(rfd.size);
 
-        char *result = &block[0];
+    char *result = &block[0];
 
-        assert(isLocal(gaddr));
+    assert(isLocal(gaddr));
 
-        auto f = MaFile(gaddr.ptr, MaFile::Mode::READ);
-        f.read_block(rfd.offset, rfd.size, result);
+    auto f = MaFile(reinterpret_cast<char *>(&rfd.sga.ptr), MaFile::Mode::READ);
+    f.read_block(rfd.offset, rfd.size, result);
 
-        //    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
-        std::memcpy(c.sendreg, result, rfd.size);
-        auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
-                                              defs::IMMDATA::DEFAULT);
-        c.rcqp->postWorkRequest(write);
-        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    }
+    //    std::cout << "datasize: " << sizeof(data->data) << ", data: " << data << std::endl;
+    std::memcpy(c.sendreg, result, rfd.size);
+    auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
+                                          defs::IMMDATA::DEFAULT);
+    c.rcqp->postWorkRequest(write);
+    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
 }
 
 void Node::handleWriteFile(rdma::CompletionQueuePair &cq, defs::ReadFileData rfd) {
     auto gaddr = defs::GlobalAddress(rfd.sga);
-    if (gaddr.isFile) {
-        auto castdata = reinterpret_cast<uint64_t *>(c.recvreg);
+    assert (gaddr.isFile);
+    auto castdata = reinterpret_cast<uint64_t *>(c.recvreg);
 
-        std::cout << castdata << std::endl;
-        auto data = reinterpret_cast<char *>(castdata);
+    //  std::cout << castdata << std::endl;
+    auto data = reinterpret_cast<char *>(castdata);
 
-        auto f = MaFile(gaddr.ptr, MaFile::Mode::WRITE);
-        f.resize(gaddr.size + rfd.size);
-        std::cout << data << std::endl;
-        std::cout << "local, size: " << rfd.size << ", gaddr-size: " << gaddr.size
-                  << ", filesize: "
-                  << f.size() << std::endl;
-        f.write_block(data, gaddr.size, rfd.size);
-        gaddr.resize(rfd.size + gaddr.size);
+    auto f = MaFile(gaddr.ptr, MaFile::Mode::WRITE);
+    f.resize(gaddr.size + rfd.size);
+    /*      std::cout << data << std::endl;
+          std::cout << "local, size: " << rfd.size << ", gaddr-size: " << gaddr.size
+                    << ", filesize: "
+                    << f.size() << std::endl;*/
+    f.write_block(data, gaddr.size, rfd.size);
+    gaddr.resize(rfd.size + gaddr.size);
 
-        std::memcpy(c.sendreg, &gaddr, sizeof(defs::SendGlobalAddr));
-        auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
-                                              defs::IMMDATA::DEFAULT);
-        c.rcqp->postWorkRequest(write);
-        cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
-    }
+    std::memcpy(c.sendreg, &gaddr, sizeof(defs::SendGlobalAddr));
+    auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr,
+                                          defs::IMMDATA::DEFAULT);
+    c.rcqp->postWorkRequest(write);
+    cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);
+
 }

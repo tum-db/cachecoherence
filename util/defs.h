@@ -16,7 +16,7 @@ namespace defs {
     constexpr size_t MAX_BLOCK_SIZE = 512 + 256 + 128; // 912, bigger generates error
     const uint16_t locknode = 2000;
 
-    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024*1024*1024; //1024*248; //1024*100
+    constexpr size_t MAX_TEST_MEMORY_SIZE = 1024 * 1024 * 1024; //1024*248; //1024*100
 
     const size_t MAX_CACHE_SIZE = 512;
     constexpr size_t BIGBADBUFFER_SIZE = 1024 * 1024 * 8; // 8MB
@@ -45,7 +45,11 @@ namespace defs {
         SendGlobalAddr sendable(uint16_t srcID) {
             SendGlobalAddr sga{};
             sga.size = size;
-            sga.ptr = reinterpret_cast<uintptr_t >(ptr);
+            if (isFile) {
+                sga.ptr = *reinterpret_cast<uint64_t *>(ptr);
+            } else {
+                sga.ptr = reinterpret_cast<uintptr_t>(ptr);
+            }
             sga.id = id;
             sga.srcID = srcID;
             sga.isFile = isFile;
@@ -63,7 +67,11 @@ namespace defs {
 
         explicit GlobalAddress(SendGlobalAddr sga) {
             size = sga.size;
-            ptr = reinterpret_cast<char *>(sga.ptr);
+            if (sga.isFile) {
+                ptr = reinterpret_cast<char *>(&sga.ptr);
+            } else {
+                ptr = reinterpret_cast<char *>(sga.ptr);
+            }
             id = sga.id;
             isFile = sga.isFile;
         };
@@ -72,7 +80,7 @@ namespace defs {
             return id;
         };
 
-        void resize(size_t newsize){
+        void resize(size_t newsize) {
             size = newsize;
         };
     };
@@ -80,7 +88,7 @@ namespace defs {
 
     struct __attribute__ ((packed)) SendingData {
         size_t size;
-        char * data;
+        char *data;
         SendGlobalAddr sga;
 
     };
@@ -88,7 +96,7 @@ namespace defs {
 
     struct __attribute__ ((packed)) Data {
         size_t size;
-        char * data;
+        char *data;
         GlobalAddress ga;
 
         SendingData sendable(uint16_t id) {
@@ -119,7 +127,7 @@ namespace defs {
         uint16_t ownerNode;
         std::vector<uint16_t> sharerNodes;
 
-        SaveData (const SaveData &) = default;
+        SaveData(const SaveData &) = default;
 
         SaveData() {
             sharerNodes.resize(64);

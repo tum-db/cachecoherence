@@ -221,7 +221,7 @@ Node::sendReadFile(defs::ReadFileData data, defs::IMMDATA immData, char *block) 
 }
 
 defs::GlobalAddress
-Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, uint64_t *block) {
+Node::sendWriteFile(defs::ReadFileData data, defs::IMMDATA immData, char *block) {
     auto &cq = network.getSharedCompletionQueue();
     memcpy(c.sendreg, &data, sizeof(defs::ReadFileData));
 
