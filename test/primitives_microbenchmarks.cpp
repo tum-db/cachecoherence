@@ -11,7 +11,7 @@ int main() {
 // Define some global params
     BenchmarkParameters params;
     params.setParam("name", "Malloc()");
-    size_t testdatasize = 1024*512;
+    size_t testdatasize = defs::MAX_BLOCK_SIZE;
     params.setParam("dataSize", testdatasize);
 
     int maxThreads = 3000;

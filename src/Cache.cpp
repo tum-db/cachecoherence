@@ -8,7 +8,7 @@
 
 
 Cache::Cache() : availablesize(), items(), state() {
-    availablesize = 512;
+    availablesize = defs::MAX_CACHE_SIZE;
     state = defs::CACHE_DIRECTORY_STATE::UNSHARED;
 }
 
