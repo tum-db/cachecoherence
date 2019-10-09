@@ -199,7 +199,7 @@ Node::FprintF(char *data, defs::GlobalAddress gaddr, size_t size, size_t offset)
     if (!gaddr.isFile) {
         return gaddr;
     }
-    ScopedLock l(gaddr, *this, LOCK_STATES::EXCLUSIVE);
+ //   ScopedLock l(gaddr, *this, LOCK_STATES::EXCLUSIVE);
     if (isLocal(gaddr)) {
 
         auto f = MaFile(gaddr.ptr, MaFile::Mode::WRITE);
@@ -234,7 +234,7 @@ void Node::FreadF(defs::GlobalAddress gaddr, size_t size, size_t offset, char *r
     if (!gaddr.isFile) {
         return;
     }
-    ScopedLock l(gaddr, *this, LOCK_STATES::SHAREDLOCK);
+  //  ScopedLock l(gaddr, *this, LOCK_STATES::SHAREDLOCK);
     if (isLocal(gaddr)) {
         auto f = MaFile(gaddr.ptr, MaFile::Mode::READ);
         f.read_block(offset, size, res);

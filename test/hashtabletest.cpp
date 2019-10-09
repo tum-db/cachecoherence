@@ -52,17 +52,22 @@ int main(int, const char **args) {
 
         std::cout << "count should be 0: " << h.count(5) << std::endl;
         std::cout << "bool should be not existent: " << h.get(5).has_value() << std::endl;
-        h[30] = true;
-        std::cout << "size should be 3: " << h.size() << std::endl;
-        std::cout << "bool should be 1: " << h[30] << std::endl;
+
         for(auto v: h){
             std::cout << "value: " << *v << std::endl;
         }
 
+        h.insert(35, new bool(true));
+        h.insert(36, new bool(true));
+        h.insert(37, new bool(true));
+        h.insert(38, new bool(true));
+        h.insert(39, new bool(true));
+        h.insert(40, new bool(true));
+        h.insert(41, new bool(true));
 
 
         h.insert(30, new bool(true));
-        std::cout << "size should be 3: " << h.size() << std::endl;
+        std::cout << "size should be 7: " << h.size() << std::endl;
         std::cout << "bool should be 1: " << h[30] << std::endl;
 
         for(auto i = h.begin(); i != h.end(); i++){
