@@ -164,8 +164,7 @@ namespace moderndbs {
         // Create a new page and don't insert it in the queues, yet.
         assert(pages.get(page_id).has_value() == 0);
         auto newpage = BufferFrame(page_id, nullptr, 0, fifo.end(), lru.end());
-
-        pages.insert(page_id, newpage, sizeof(BufferFrame) + page_size);
+        pages.insert(page_id, newpage);
         auto page = pages[page_id];
         ++page.num_users;
 

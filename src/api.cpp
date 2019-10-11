@@ -45,7 +45,6 @@ defs::GlobalAddress Node::Malloc(size_t size, uint16_t srcID) {
 
 defs::GlobalAddress Node::Free(defs::GlobalAddress gaddr, uint16_t srcID) {
     if (isLocal(gaddr)) {
-
         auto d = reinterpret_cast<defs::SaveData *>(gaddr.ptr);
 
 

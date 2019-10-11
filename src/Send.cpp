@@ -56,7 +56,7 @@ defs::SendGlobalAddr Node::sendData(defs::SendingData sd, defs::IMMDATA immData)
     auto &cq = network.getSharedCompletionQueue();
     auto data = defs::ReadFileData{false, sd.sga, 0, sd.size};
 
-    std::memcpy(c.sendreg, &data, sizeof(data));
+    std::memcpy(c.sendreg, &data, sizeof(defs::ReadFileData));
     auto write = defs::createWriteWithImm(c.sendmr->getSlice(), c.remoteMr, immData);
     c.rcqp->postWorkRequest(write);
     cq.pollSendCompletionQueueBlocking(ibv::workcompletion::Opcode::RDMA_WRITE);

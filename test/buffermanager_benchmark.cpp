@@ -18,7 +18,7 @@
 int main() {
     auto n = Node();
     n.setID(2000);
-    auto buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 100, &n,
+    auto buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 60, &n,
                                                                      HashTable<moderndbs::BufferFrame>(
                                                                              &n));
 
@@ -27,13 +27,13 @@ int main() {
     params.setParam("dataSize", testdata.size() * sizeof(uint64_t));
     int threads = 1;
     for (uint16_t segment = 0; segment < 5; ++segment) {
-        for (uint64_t segment_page = 0; segment_page < 100; ++segment_page) {
+        for (uint64_t segment_page = 0; segment_page < 60; ++segment_page) {
             params.setParam("threads", threads);
             params.setParam("segment", segment);
             params.setParam("segment_page", segment_page);
             params.setParam("name", "fixpage");
             bool printHeader = threads == 1;
-            uint64_t page_id = 100*segment+segment_page;
+            uint64_t page_id = 1000*segment+segment_page;
 
             moderndbs::BufferFrame page;
             {
@@ -52,17 +52,17 @@ int main() {
         }
     }
 // Destroy the buffer manager and create a new one.
-    buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 100, &n,
+    buffer_manager = std::make_unique<moderndbs::BufferManager>(defs::MAX_BLOCK_SIZE, 60, &n,
                                                                 HashTable<moderndbs::BufferFrame>(
                                                                         &n));
     for (uint16_t segment = 0; segment < 5; ++segment) {
-        for (uint64_t segment_page = 0; segment_page < 100; ++segment_page) {
+        for (uint64_t segment_page = 0; segment_page < 60; ++segment_page) {
 
             params.setParam("threads", threads);
             params.setParam("segment", segment);
             params.setParam("segment_page", segment_page);
             params.setParam("name", "fixpage");
-            uint64_t page_id =  100*segment+segment_page;
+            uint64_t page_id =  1000*segment+segment_page;
             moderndbs::BufferFrame page;
             {
                 PerfEventBlock e(1, params, false);
