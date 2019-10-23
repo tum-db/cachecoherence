@@ -118,7 +118,7 @@ public:
 
     explicit HashTable(Node *n) {
         node = n;
-        storage = std::vector<Elem*>(64, nullptr);
+        storage = std::vector<Elem *>(64, nullptr);
     }
 
 
@@ -208,7 +208,7 @@ public:
     * @param key
     * @return reference to HT element
     */
-    V &operator[](uint64_t key) {
+    const V &operator[](uint64_t key) {
         uint64_t b = hashBucket(key);
         Elem *bucket = storage[b];
         while (bucket != nullptr) {
